@@ -553,7 +553,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <p>© 2026 Snap AI Delivery Systems.</p>
           <p className="flex items-center gap-1 justify-center text-theme-muted">
-            Made with <Heart className="h-3 w-3 text-rose-500 fill-rose-500" /> by ITpath
+            Powered <Heart className="h-3 w-3 text-rose-500 fill-rose-500" /> by ITpath
           </p>
         </div>
       </footer>
