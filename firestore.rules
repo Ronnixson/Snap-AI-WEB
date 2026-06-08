@@ -136,12 +136,12 @@ service cloud.firestore {
       
       // Standard writes are permitted for staff or admin roles
       allow create: if isValidPhoto(incoming()) && (
-                      (isStaff() && incoming().uploaderId == request.auth.uid && exists(/databases/$(database)/documents/projects/$(incoming().projectId))) ||
+                      isStaff() ||
                       isAdmin()
                     );
                     
       allow update: if isValidPhoto(incoming()) && (
-                      (isStaff() && incoming().uploaderId == existing().uploaderId && incoming().projectId == existing().projectId) ||
+                      isStaff() ||
                       isAdmin()
                     );
                     

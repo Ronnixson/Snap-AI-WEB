@@ -1,9 +1,9 @@
 import React, { useState, useRef } from "react";
 import { Project, EventPhoto, UserProfile } from "../types";
-import { collection, doc, setDoc, arrayUnion } from "firebase/firestore";
+import { collection, doc, setDoc, arrayUnion, updateDoc, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { handleFirestoreError, OperationType } from "../utils/firebaseErrors";
-import { Plus, Camera, Image as ImageIcon, Loader2, UploadCloud, CheckCircle, Calendar, MapPin, Trash2, AlertTriangle, Eye } from "lucide-react";
+import { Plus, Camera, Image as ImageIcon, Loader2, UploadCloud, CheckCircle, Calendar, MapPin, Trash2, AlertTriangle, Eye, Edit, Save, X, Search, Filter } from "lucide-react";
 
 interface StaffPortalProps {
   projects: Project[];
@@ -21,7 +21,7 @@ export default function StaffPortal({
   onSelectProjectId,
 }: StaffPortalProps) {
   // Navigation
-  const [activeTab, setActiveTab] = useState<"projects" | "upload">("projects");
+  const [activeTab, setActiveTab] = useState<"projects" | "upload" | "photos">("projects");
 
   // Create Project states
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -38,6 +38,67 @@ export default function StaffPortal({
   const [uploadQueue, setUploadQueue] = useState<{ name: string; base64: string; sizeKB: number; altText: string }[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  // Photo gallery management states
+  const [photoSearchQuery, setPhotoSearchQuery] = useState("");
+  const [photoProjectFilter, setPhotoProjectFilter] = useState("all");
+  const [photoCategoryFilter, setPhotoCategoryFilter] = useState("all");
+  const [editingPhotoId, setEditingPhotoId] = useState<string | null>(null);
+  const [editFileName, setEditFileName] = useState("");
+  const [editAltText, setEditAltText] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [photoDeleteConfirmId, setPhotoDeleteConfirmId] = useState<string | null>(null);
+  const [isDeletingPhotoId, setIsDeletingPhotoId] = useState<string | null>(null);
+
+  const handleStartEditPhoto = (photo: EventPhoto) => {
+    setEditingPhotoId(photo.id);
+    setEditFileName(photo.fileName);
+    setEditAltText(photo.altText || photo.fileName);
+    setEditCategory(photo.category || "General");
+  };
+
+  const handleSaveEditPhoto = async (photoId: string) => {
+    if (!editFileName.trim()) {
+      setError("Photo file name cannot be empty.");
+      return;
+    }
+    setIsSavingEdit(true);
+    clearAlerts();
+    try {
+      const photoRef = doc(db, "photos", photoId);
+      await updateDoc(photoRef, {
+        fileName: editFileName.trim(),
+        altText: editAltText.trim() || editFileName.trim(),
+        category: editCategory.trim() || "General",
+      });
+      setSuccess("Photo name and search ID updated successfully!");
+      setEditingPhotoId(null);
+      await onRefreshData();
+    } catch (err: any) {
+      setError("Failed to update photo: " + err.message);
+      handleFirestoreError(err, OperationType.UPDATE, `photos/${photoId}`);
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const handleDeletePhoto = async (photoId: string) => {
+    setIsDeletingPhotoId(photoId);
+    clearAlerts();
+    try {
+      const photoRef = doc(db, "photos", photoId);
+      await deleteDoc(photoRef);
+      setSuccess("Photo deleted from server.");
+      setPhotoDeleteConfirmId(null);
+      await onRefreshData();
+    } catch (err: any) {
+      setError("Failed to delete photo: " + err.message);
+      handleFirestoreError(err, OperationType.DELETE, `photos/${photoId}`);
+    } finally {
+      setIsDeletingPhotoId(null);
+    }
+  };
 
   const handleSelectProject = (projectId: string) => {
     setTargetProjectId(projectId);
@@ -275,7 +336,7 @@ export default function StaffPortal({
         </div>
 
         {/* Tab Buttons */}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => { setActiveTab("projects"); clearAlerts(); }}
             className={`px-4 py-2 text-xs font-bold rounded-lg transition border cursor-pointer ${
@@ -295,6 +356,16 @@ export default function StaffPortal({
             }`}
           >
             Upload Event Photos
+          </button>
+          <button
+            onClick={() => { setActiveTab("photos"); clearAlerts(); }}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition border cursor-pointer ${
+              activeTab === "photos"
+                ? "bg-emerald-500/25 text-emerald-400 border-emerald-500/30"
+                : "bg-slate-950/40 text-slate-400 border-slate-800 hover:text-white"
+            }`}
+          >
+            Manage Photos Gallery
           </button>
         </div>
       </div>
@@ -591,13 +662,27 @@ export default function StaffPortal({
                       </button>
                     </div>
                     
-                    <div className="flex-1 space-y-2 overflow-hidden">
+                    <div className="flex-1 space-y-2 overflow-hidden text-left">
                       <div className="flex justify-between items-center">
-                        <span className="text-[9px] text-slate-500 truncate font-mono max-w-[120px]">{item.name}</span>
-                        <span className="text-[8px] bg-slate-950 px-1 py-0.5 rounded text-slate-400 font-mono">{item.sizeKB}KB</span>
+                        <span className="text-[8px] bg-slate-950 px-1 py-0.5 rounded text-slate-400 font-mono">Size: {item.sizeKB}KB</span>
                       </div>
                       <div className="space-y-0.5">
-                        <label className="text-[8px] uppercase font-mono tracking-wider text-slate-400 font-extrabold block">
+                        <label className="text-[8px] uppercase font-mono tracking-wider text-slate-400 font-extrabold block text-left">
+                          Photo Name (File Name) *
+                        </label>
+                        <input
+                          type="text"
+                          value={item.name}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setUploadQueue(prev => prev.map((q, i) => i === index ? { ...q, name: val } : q));
+                          }}
+                          className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[11px] text-emerald-400 focus:outline-none focus:border-emerald-500 font-mono"
+                          placeholder="e.g. bride_dance_01.jpg"
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <label className="text-[8px] uppercase font-mono tracking-wider text-slate-400 font-extrabold block text-left">
                           Alt Text (Search Unique ID) *
                         </label>
                         <input
@@ -607,7 +692,7 @@ export default function StaffPortal({
                             const val = e.target.value;
                             setUploadQueue(prev => prev.map((q, i) => i === index ? { ...q, altText: val } : q));
                           }}
-                          className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 text-xs text-indigo-400 focus:outline-none focus:border-indigo-500 font-mono"
+                          className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[11px] text-indigo-400 focus:outline-none focus:border-indigo-500 font-mono"
                           placeholder="e.g. bride_dance_01"
                         />
                       </div>
@@ -656,6 +741,231 @@ export default function StaffPortal({
             </div>
           )}
 
+        </div>
+      )}
+
+      {/* TAB C: PHOTOS GALLERY / EDIT NAMES */}
+      {activeTab === "photos" && (
+        <div className="mt-6 space-y-6 text-left">
+          <div className="bg-slate-950 border border-slate-850 p-4 rounded-xl flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className="space-y-1 self-start md:self-center">
+              <h3 className="text-sm font-bold text-white flex items-center gap-1.5 font-mono uppercase tracking-wider">
+                Photo Registry & Simpler Naming
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                Instantly search and edit filenames or alt tag keys for match lookups.
+              </p>
+            </div>
+            
+            {/* Search + Filter controls */}
+            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto items-style sm:items-center">
+              <div className="relative flex-1 sm:w-48">
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="Search file or alt text..."
+                  value={photoSearchQuery}
+                  onChange={(e) => setPhotoSearchQuery(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-750 px-8 py-1.5 text-xs rounded-lg text-slate-100 placeholder-slate-650 focus:outline-none focus:border-emerald-500 font-mono"
+                />
+              </div>
+
+              <select
+                value={photoProjectFilter}
+                onChange={(e) => setPhotoProjectFilter(e.target.value)}
+                className="bg-slate-900 text-slate-300 border border-slate-750 px-3 py-1.5 text-xs rounded-lg focus:outline-none focus:border-emerald-500"
+              >
+                <option value="all">-- All Events --</option>
+                <option value="individual">-- Individual Photos --</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* List of photos in modern bento grid */}
+          {photos.filter((p) => {
+            // Apply Project filters
+            if (photoProjectFilter !== "all" && p.projectId !== photoProjectFilter) return false;
+            // Apply Search queries
+            if (photoSearchQuery.trim()) {
+              const q = photoSearchQuery.toLowerCase();
+              const nameMatch = (p.fileName || "").toLowerCase().includes(q);
+              const altMatch = (p.altText || "").toLowerCase().includes(q);
+              const idMatch = p.id.toLowerCase().includes(q);
+              const catMatch = (p.category || "").toLowerCase().includes(q);
+              if (!nameMatch && !altMatch && !idMatch && !catMatch) return false;
+            }
+            return true;
+          }).length === 0 ? (
+            <div className="bg-slate-950 border border-slate-850 p-8 rounded-xl text-center">
+              <ImageIcon className="h-8 w-8 text-slate-600 mx-auto mb-2" />
+              <p className="text-xs text-slate-400">No portfolio photographs found matching selected filters.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {photos.filter((p) => {
+                if (photoProjectFilter !== "all" && p.projectId !== photoProjectFilter) return false;
+                if (photoSearchQuery.trim()) {
+                  const q = photoSearchQuery.toLowerCase();
+                  const nameMatch = (p.fileName || "").toLowerCase().includes(q);
+                  const altMatch = (p.altText || "").toLowerCase().includes(q);
+                  const idMatch = p.id.toLowerCase().includes(q);
+                  const catMatch = (p.category || "").toLowerCase().includes(q);
+                  if (!nameMatch && !altMatch && !idMatch && !catMatch) return false;
+                }
+                return true;
+              }).map((photo) => {
+                const isEditing = editingPhotoId === photo.id;
+                const assocProject = projects.find((proj) => proj.id === photo.projectId);
+                
+                return (
+                  <div
+                    key={photo.id}
+                    className="bg-slate-950/60 border border-slate-850 rounded-xl p-4 flex flex-col gap-3 hover:border-slate-750 transition"
+                  >
+                    {/* Visual Media Thumbnail with badge */}
+                    <div className="relative aspect-video rounded-lg overflow-hidden bg-slate-900 border border-slate-850">
+                      <img
+                        referrerPolicy="no-referrer"
+                        src={photo.base64Data}
+                        alt={photo.fileName}
+                        className="w-full h-full object-cover"
+                      />
+                      <span className="absolute top-2 left-2 text-[9px] bg-slate-950/80 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded font-mono uppercase">
+                        📂 {photo.category || (photo.projectId === "individual" ? "Individual" : "General")}
+                      </span>
+                    </div>
+
+                    {/* Metadata view / edit block */}
+                    {isEditing ? (
+                      <div className="space-y-3 bg-slate-900/50 p-3 rounded-lg border border-slate-800">
+                        <div className="space-y-1 text-left">
+                          <label className="text-[9px] uppercase font-mono tracking-wider font-extrabold text-slate-400 block text-left">
+                            Photo Display Name (File Name)
+                          </label>
+                          <input
+                            type="text"
+                            value={editFileName}
+                            onChange={(e) => setEditFileName(e.target.value)}
+                            className="w-full bg-slate-950 border border-slate-755 rounded px-2.5 py-1 text-xs text-emerald-400 focus:outline-none focus:border-emerald-500 font-mono"
+                          />
+                        </div>
+
+                        <div className="space-y-1 text-left">
+                          <label className="text-[9px] uppercase font-mono tracking-wider font-extrabold text-slate-400 block text-left">
+                            Alt Text / Face Match Key (Unique Search ID)
+                          </label>
+                          <input
+                            type="text"
+                            value={editAltText}
+                            onChange={(e) => setEditAltText(e.target.value)}
+                            className="w-full bg-slate-955 border border-slate-750 rounded px-2.5 py-1 text-xs text-indigo-400 focus:outline-none focus:border-indigo-500 font-mono"
+                          />
+                        </div>
+
+                        <div className="space-y-1 text-left">
+                          <label className="text-[9px] uppercase font-mono tracking-wider font-extrabold text-slate-400 block text-left">
+                            Category Section
+                          </label>
+                          <input
+                            type="text"
+                            value={editCategory}
+                            onChange={(e) => setEditCategory(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-750 rounded px-2.5 py-1 text-xs text-slate-205 focus:outline-none focus:border-emerald-550"
+                            placeholder="e.g. Candid, Ceremony"
+                          />
+                        </div>
+
+                        <div className="flex gap-2 justify-end pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setEditingPhotoId(null)}
+                            className="bg-transparent text-slate-400 hover:text-white px-3 py-1 font-semibold rounded text-xs transition border border-transparent hover:border-slate-800 cursor-pointer"
+                          >
+                            <X className="h-3 w-3 inline mr-1" /> Close
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isSavingEdit}
+                            onClick={() => handleSaveEditPhoto(photo.id)}
+                            className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-4 py-1 font-bold rounded text-xs transition flex items-center gap-1 cursor-pointer"
+                          >
+                            {isSavingEdit ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Save className="h-3 w-3" />
+                            )}
+                            Save Real-Time
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5 flex-1 flex flex-col justify-between text-left">
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="text-[10px] uppercase font-mono text-slate-400 font-bold">Photo Name:</span>
+                            <span className="text-xs text-white font-medium text-right font-mono truncate max-w-[160px]" title={photo.fileName}>
+                              {photo.fileName}
+                            </span>
+                          </div>
+                          
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="text-[10px] uppercase font-mono text-slate-400 font-bold">Search ID:</span>
+                            <span className="text-xs font-mono text-indigo-400 text-right truncate max-w-[160px]" title={photo.altText || photo.fileName}>
+                              {photo.altText || photo.fileName}
+                            </span>
+                          </div>
+
+                          <p className="text-[10px] text-slate-500 font-mono text-left">
+                            Associated Event: <strong className="text-slate-400 font-sans">{assocProject ? assocProject.name : "Individual Upload"}</strong>
+                          </p>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex gap-2 pt-2 border-t border-slate-900 justify-end">
+                          <button
+                            onClick={() => handleStartEditPhoto(photo)}
+                            className="bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white px-3 py-1.5 rounded-lg text-xs transition flex items-center gap-1 cursor-pointer"
+                          >
+                            <Edit className="h-3 w-3 text-sky-400" />
+                            Rename / Simplify
+                          </button>
+
+                          {photoDeleteConfirmId === photo.id ? (
+                            <div className="flex gap-1.5">
+                              <button
+                                onClick={() => handleDeletePhoto(photo.id)}
+                                disabled={isDeletingPhotoId === photo.id}
+                                className="bg-red-500 hover:bg-red-400 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition cursor-pointer"
+                              >
+                                {isDeletingPhotoId === photo.id ? "..." : "Yes"}
+                              </button>
+                              <button
+                                onClick={() => setPhotoDeleteConfirmId(null)}
+                                className="bg-slate-900 border border-slate-850 hover:bg-slate-800 text-slate-400 px-3 py-1.5 rounded-lg text-xs transition cursor-pointer"
+                              >
+                                No
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setPhotoDeleteConfirmId(photo.id)}
+                              className="bg-transparent hover:bg-red-500/10 border border-transparent hover:border-red-500/20 text-red-400/80 hover:text-red-400 p-1.5 rounded-lg text-xs transition cursor-pointer"
+                              title="Delete photo"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
