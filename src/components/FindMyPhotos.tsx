@@ -25,6 +25,8 @@ export default function FindMyPhotos({
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [eventNameQuery, setEventNameQuery] = useState<string>("");
+  const [searchOption, setSearchOption] = useState<"face" | "text">("face");
+  const [photoIdQuery, setPhotoIdQuery] = useState<string>("");
 
   // Billing states (for trial mode premium monetization)
   const [unlockedPhotos, setUnlockedPhotos] = useState<{ [photoId: string]: boolean }>({});
@@ -164,6 +166,53 @@ export default function FindMyPhotos({
     }
   };
 
+  // Perform Unique ID / Metadata Text Searching
+  const handleTextSearch = async () => {
+    if (!photoIdQuery.trim()) return;
+    setIsMatching(true);
+    setHasSearched(false);
+    setMatchedPhotoIds([]);
+    setMatchDetails({});
+
+    try {
+      setMatchStatus("Searching our secure repository by Unique Identifier/Metadata...");
+      await new Promise((r) => setTimeout(r, 800));
+
+      const queryVal = photoIdQuery.trim().toLowerCase();
+      
+      // Filter by project/compilation if specified
+      const targetPhotos = selectedProjectId
+        ? photos.filter((p) => p.projectId === selectedProjectId)
+        : photos;
+
+      // Filter photos matching text query (matches ID, containing name or full filename)
+      const matches = targetPhotos.filter((p) => {
+        const matchId = String(p.id).toLowerCase();
+        const matchFileName = String(p.fileName || "").toLowerCase();
+        return matchId.includes(queryVal) || matchFileName.includes(queryVal);
+      });
+
+      const mIds = matches.map(p => p.id);
+      const mDetails: { [photoId: string]: { confidence: number; reasoning: string } } = {};
+      matches.forEach(p => {
+        mDetails[p.id] = {
+          confidence: 1.00,
+          reasoning: `Matched via Unique ID / Filename text: "${photoIdQuery}".`
+        };
+      });
+
+      setMatchedPhotoIds(mIds);
+      setMatchDetails(mDetails);
+      setMatchStatus("");
+    } catch (err: any) {
+      console.error("Text search error:", err);
+      setMatchStatus("Search failed: " + err.message);
+    } finally {
+      setIsMatching(false);
+      setHasSearched(true);
+    }
+  };
+
   // Download high-resolution photo cleanly
   const handleDownload = (photo: EventPhoto, isWatermarked: boolean) => {
     const link = document.createElement("a");
@@ -240,9 +289,33 @@ export default function FindMyPhotos({
           <Sparkles className="h-5.5 w-5.5 text-sky-400" />
           Search Matched Photos
         </h2>
-        <p className="text-slate-400 text-sm mt-1 max-w-2xl">
-          Instantly search other directories. Choose standard event compilation folders or select all projects, take a selfie, and let Snap AI's server locate your photos using modern face recognition.
+        <p className="text-slate-400 text-sm mt-1 max-w-2xl font-sans">
+          Choose between Option A (Smart Face Recognition) or Option B (Unique Photo ID or Filename Search) to instantly locate matching pictures.
         </p>
+
+        {/* Search Method selection tabs */}
+        <div className="flex border-b border-slate-800/80 mt-6 select-none bg-slate-950/20 p-1 rounded-xl gap-1">
+          <button
+            onClick={() => { setSearchOption("face"); setHasSearched(false); }}
+            className={`flex-1 py-3 px-4 rounded-lg text-xs sm:text-xs font-bold uppercase font-mono tracking-wider transition-all duration-150 cursor-pointer text-center ${
+              searchOption === "face"
+                ? "bg-sky-500/10 text-sky-400 border border-sky-500/30"
+                : "text-slate-400 hover:text-slate-200 border border-transparent"
+            }`}
+          >
+            👤 Option A: Biometric Face Match
+          </button>
+          <button
+            onClick={() => { setSearchOption("text"); setHasSearched(false); }}
+            className={`flex-1 py-3 px-4 rounded-lg text-xs sm:text-xs font-bold uppercase font-mono tracking-wider transition-all duration-150 cursor-pointer text-center ${
+              searchOption === "text"
+                ? "bg-sky-500/10 text-sky-405 border border-sky-500/30"
+                : "text-slate-400 hover:text-slate-200 border border-transparent"
+            }`}
+          >
+            🆔 Option B: Unique Photo ID Search
+          </button>
+        </div>
 
         <div className="grid grid-col-1 md:grid-cols-2 gap-8 mt-6 pt-5 border-t border-slate-850">
           {/* STEP 1: SELECT COMPILATION */}
@@ -273,105 +346,154 @@ export default function FindMyPhotos({
             </div>
           </div>
 
-          {/* STEP 2: PROVIDE SELFIE FACE */}
-          <div className="space-y-4">
-            <label className="block text-xs uppercase font-mono tracking-wider text-slate-400 font-bold">
-              2. Add Selfie Face Anchor
-            </label>
-            <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col items-center justify-center min-h-[160px]">
-              
-              {/* Captured selfie layout */}
-              {selfie && !useCamera && (
-                <div className="relative h-28 w-28 rounded-full border-2 border-sky-400 overflow-hidden shadow-lg shadow-sky-400/10 group">
-                  <img src={selfie} alt="Selfie" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
-                  <button
-                    onClick={() => setSelfie(null)}
-                    className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs font-bold text-red-400 transition cursor-pointer"
-                  >
-                    Clear Photo
-                  </button>
-                </div>
-              )}
-
-              {/* Active webcam stream element */}
-              {useCamera && (
-                <div className="flex flex-col items-center gap-2">
-                  <div className="relative h-32 w-32 rounded-full overflow-hidden border-2 border-indigo-500 bg-black">
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      className="w-full h-full object-cover scale-x-[-1]"
-                    />
-                  </div>
-                  <button
-                    onClick={handleCapturePhoto}
-                    className="bg-indigo-500 hover:bg-indigo-400 text-white font-bold text-xs px-3 py-1.5 rounded-lg mr-2"
-                  >
-                    Capture Capture
-                  </button>
-                </div>
-              )}
-
-              {/* Upload actions if default null */}
-              {!selfie && !useCamera && (
-                <div className="flex flex-col items-center gap-3">
-                  <div className="flex border border-slate-800 rounded-lg p-1 bg-slate-900">
+          {/* STEP 2: PROVIDE SELFIE FACE OR UNIQUE ID TEXT */}
+          {searchOption === "face" ? (
+            <div className="space-y-4">
+              <label className="block text-xs uppercase font-mono tracking-wider text-slate-400 font-bold">
+                2. Add Selfie Face Anchor
+              </label>
+              <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col items-center justify-center min-h-[160px]">
+                
+                {/* Captured selfie layout */}
+                {selfie && !useCamera && (
+                  <div className="relative h-28 w-28 rounded-full border-2 border-sky-400 overflow-hidden shadow-lg shadow-sky-400/10 group">
+                    <img src={selfie} alt="Selfie" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                     <button
-                      onClick={handleStartCamera}
-                      className="text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:bg-slate-800 transition text-slate-200"
+                      onClick={() => setSelfie(null)}
+                      className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs font-bold text-red-400 transition cursor-pointer"
                     >
-                      <Camera className="h-3.5 w-3.5" /> Camera Selfie
-                    </button>
-                    <span className="text-slate-600 self-center px-1 font-mono text-[10px]">OR</span>
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      className="text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:bg-slate-800 transition text-slate-200 cursor-pointer"
-                    >
-                      <Upload className="h-3.5 w-3.5" /> Upload File
+                      Clear Photo
                     </button>
                   </div>
-                  <p className="text-[10px] text-slate-500 text-center leading-normal max-w-[240px]">
-                    Accepts standardized JPG/PNG photos. Your profile geometry matches strictly on device.
-                  </p>
-                  {cameraError && <p className="text-[10px] text-red-400 font-mono">{cameraError}</p>}
-                </div>
-              )}
+                )}
 
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="hidden"
-              />
+                {/* Active webcam stream element */}
+                {useCamera && (
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="relative h-32 w-32 rounded-full overflow-hidden border-2 border-indigo-500 bg-black">
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        className="w-full h-full object-cover scale-x-[-1]"
+                      />
+                    </div>
+                    <button
+                      onClick={handleCapturePhoto}
+                      className="bg-indigo-500 hover:bg-indigo-400 text-white font-bold text-xs px-3 py-1.5 rounded-lg mr-2"
+                    >
+                      Capture Capture
+                    </button>
+                  </div>
+                )}
+
+                {/* Upload actions if default null */}
+                {!selfie && !useCamera && (
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="flex border border-slate-800 rounded-lg p-1 bg-slate-900">
+                      <button
+                        onClick={handleStartCamera}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:bg-slate-800 transition text-slate-200"
+                      >
+                        <Camera className="h-3.5 w-3.5" /> Camera Selfie
+                      </button>
+                      <span className="text-slate-600 self-center px-1 font-mono text-[10px]">OR</span>
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:bg-slate-800 transition text-slate-200 cursor-pointer"
+                      >
+                        <Upload className="h-3.5 w-3.5" /> Upload File
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-500 text-center leading-normal max-w-[240px]">
+                      Accepts standardized JPG/PNG photos. Your profile geometry matches strictly on device.
+                    </p>
+                    {cameraError && <p className="text-[10px] text-red-400 font-mono">{cameraError}</p>}
+                  </div>
+                )}
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-4">
+              <label className="block text-xs uppercase font-mono tracking-wider text-slate-400 font-bold">
+                2. Enter Unique Photo ID or Filename
+              </label>
+              <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-center min-h-[160px] space-y-3">
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <Search className="h-4 w-4 text-slate-500" />
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="e.g. photo_17293847, IMG_3910.jpg"
+                    value={photoIdQuery}
+                    onChange={(e) => setPhotoIdQuery(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700/80 rounded-lg py-2.5 pl-9 pr-4 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500"
+                  />
+                </div>
+                <p className="text-[10px] text-slate-500 leading-relaxed">
+                  Every uploaded photograph has a unique alphanumeric ID string. Paste the ID or full file name tag above to pull your picture directly from the secure event directory.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Trigger Button */}
         <div className="mt-8 pt-5 border-t border-slate-850 flex justify-center">
-          <button
-            onClick={handleFindMatches}
-            disabled={!selfie || isMatching}
-            className={`w-full sm:w-auto px-10 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2.5 transition transform cursor-pointer ${
-              selfie && !isMatching
-                ? "bg-gradient-to-tr from-sky-400 to-indigo-500 hover:translate-y-[-1px] text-slate-950 hover:shadow-lg hover:shadow-sky-500/25 active:scale-95"
-                : "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50"
-            }`}
-          >
-            {isMatching ? (
-              <>
-                <Loader2 className="h-4.5 w-4.5 animate-spin text-slate-950" />
-                <span>Scanning Databases...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4.5 w-4.5 text-slate-950 stroke-[2.5]" />
-                <span>Run Smart Face Matcher</span>
-              </>
-            )}
-          </button>
+          {searchOption === "face" ? (
+            <button
+              onClick={handleFindMatches}
+              disabled={!selfie || isMatching}
+              className={`w-full sm:w-auto px-10 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2.5 transition transform cursor-pointer ${
+                selfie && !isMatching
+                  ? "bg-gradient-to-tr from-sky-400 to-indigo-500 hover:translate-y-[-1px] text-slate-950 hover:shadow-lg hover:shadow-sky-500/25 active:scale-95"
+                  : "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50"
+              }`}
+            >
+              {isMatching ? (
+                <>
+                  <Loader2 className="h-4.5 w-4.5 animate-spin text-slate-950" />
+                  <span>Scanning Databases...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4.5 w-4.5 text-slate-950 stroke-[2.5]" />
+                  <span>Run Smart Face Matcher</span>
+                </>
+              )}
+            </button>
+          ) : (
+            <button
+              onClick={handleTextSearch}
+              disabled={!photoIdQuery.trim() || isMatching}
+              className={`w-full sm:w-auto px-10 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2.5 transition transform cursor-pointer ${
+                photoIdQuery.trim() && !isMatching
+                  ? "bg-gradient-to-tr from-sky-400 to-indigo-500 hover:translate-y-[-1px] text-slate-950 hover:shadow-lg hover:shadow-sky-500/25 active:scale-95"
+                  : "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50"
+              }`}
+            >
+              {isMatching ? (
+                <>
+                  <Loader2 className="h-4.5 w-4.5 animate-spin text-slate-950" />
+                  <span>Searching identification...</span>
+                </>
+              ) : (
+                <>
+                  <Search className="h-4.5 w-4.5 text-slate-950 stroke-[2.5]" />
+                  <span>Search by Photo ID & Tag</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
@@ -606,13 +728,19 @@ export default function FindMyPhotos({
 
                       {/* AI Reasoning Commentary */}
                       <div className="p-4 space-y-4">
-                        <div className="bg-slate-950/50 p-3 rounded-lg border border-slate-850">
+                        <div className="bg-slate-950/50 p-3 rounded-lg border border-slate-850 space-y-1">
                           <h5 className="text-[10px] text-sky-400 font-mono uppercase tracking-wider font-semibold">
                             Snap AI analysis Details:
                           </h5>
-                          <p className="text-xs text-slate-300 mt-1 italic leading-relaxed">
+                          <p className="text-xs text-slate-350 italic leading-relaxed">
                             "{details.reasoning}"
                           </p>
+                          <div className="pt-1.5 border-t border-slate-850/50 flex justify-between items-center text-[10px] text-slate-400 font-mono">
+                            <span>Photo ID Code:</span>
+                            <span className="text-sky-350 bg-slate-900 px-2 py-0.5 rounded border border-slate-750 font-bold select-all cursor-pointer" title="Double click or copy this ID to search directly">
+                              {photo.id}
+                            </span>
+                          </div>
                         </div>
 
                         {/* Download and Billing Action Footer */}
