@@ -35,7 +35,7 @@ export default function StaffPortal({
   // Upload Photos states
   const [targetProjectId, setTargetProjectId] = useState("individual");
   const [uploadCategory, setUploadCategory] = useState("Individual");
-  const [uploadQueue, setUploadQueue] = useState<{ name: string; base64: string; sizeKB: number }[]>([]);
+  const [uploadQueue, setUploadQueue] = useState<{ name: string; base64: string; sizeKB: number; altText: string }[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
@@ -170,12 +170,18 @@ export default function StaffPortal({
     (Array.from(files) as File[]).forEach((file) => {
       // Auto compress to 1200px (HD details, perfectly fits under 1MB Firestore doc boundary)
       compressAndLoadImage(file, 1200, (base64, sizeKB) => {
+        const lastDot = file.name.lastIndexOf('.');
+        const cleanName = lastDot !== -1 ? file.name.substring(0, lastDot) : file.name;
+        // Clean special symbols but keep dashes and spacing
+        const defaultAltText = cleanName.replace(/[^a-zA-Z0-9_\-\s]/g, "");
+
         setUploadQueue((prev) => [
           ...prev,
           {
             name: file.name,
             base64,
             sizeKB,
+            altText: defaultAltText,
           },
         ]);
       });
@@ -202,7 +208,14 @@ export default function StaffPortal({
     try {
       const finalCategory = uploadCategory.trim() || (finalProjectId === "individual" ? "Individual" : "General");
       for (const item of uploadQueue) {
-        const photoId = `photo_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        // Use photographer-provided altText as the custom matching key
+        const rawAlt = item.altText.trim();
+        // Replace spaces with underscores to create a clean database key
+        const cleanAltId = rawAlt ? rawAlt.replace(/\s+/g, "_") : "";
+        
+        // Use clean alt text ID as primary key, fallback if blank
+        const photoId = cleanAltId || `photo_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        
         const ref = doc(db, "photos", photoId);
 
         const photoObj: EventPhoto = {
@@ -214,6 +227,7 @@ export default function StaffPortal({
           createdAt: new Date().toISOString(),
           category: finalCategory,
           isPreview: false, // Default is false so it is stored privately for face scan matching only
+          altText: rawAlt || item.name,
         };
 
         await setDoc(ref, photoObj);
@@ -221,7 +235,7 @@ export default function StaffPortal({
         setUploadProgress(Math.round((uploadedCount / uploadQueue.length) * 100));
       }
 
-      setSuccess(`Successfully posted ${uploadedCount} HD photos. They are stored securely for face matching/retrieval!`);
+      setSuccess(`Successfully posted ${uploadedCount} HD photos. They are stored securely with Unique Alt Text IDs!`);
       setUploadQueue([]);
       await onRefreshData();
     } catch (err: any) {
@@ -555,22 +569,49 @@ export default function StaffPortal({
           {uploadQueue.length > 0 && (
             <div className="bg-slate-950 rounded-xl border border-slate-850 p-4 space-y-4">
               <div className="flex justify-between items-center border-b border-slate-850 pb-2">
-                <span className="text-xs font-bold font-mono text-white">Pending Upload Queue ({uploadQueue.length})</span>
-                <span className="text-[10px] text-slate-400">Estimated upload size: ~{Math.round(uploadQueue.reduce((acc, curr) => acc + curr.sizeKB, 0))} KB</span>
+                <div className="space-y-0.5">
+                  <span className="text-xs font-bold font-mono text-white block">Pending Upload Queue ({uploadQueue.length})</span>
+                  <p className="text-[10px] text-slate-500">Configure Alt Text fields below. They will serve as the exact Unique Search IDs.</p>
+                </div>
+                <span className="text-[10px] text-slate-400 font-mono">Estimated size: ~{Math.round(uploadQueue.reduce((acc, curr) => acc + curr.sizeKB, 0))} KB</span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 max-h-[180px] overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[300px] overflow-y-auto pr-1">
                 {uploadQueue.map((item, index) => (
-                  <div key={index} className="relative group/item bg-slate-905 border border-slate-800 rounded-lg overflow-hidden h-20">
-                    <img src={item.base64} alt="Thumbnail preview" className="w-full h-full object-cover opacity-80" />
+                  <div key={index} className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex gap-3 items-center relative">
+                    <div className="relative w-16 h-16 shrink-0 rounded-lg overflow-hidden bg-slate-950 border border-slate-800">
+                      <img src={item.base64} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFromQueue(index)}
+                        className="absolute inset-0 bg-black/75 opacity-0 hover:opacity-100 flex items-center justify-center text-red-400 transition cursor-pointer"
+                        title="Remove photo"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                     
-                    <button
-                      onClick={() => handleRemoveFromQueue(index)}
-                      className="absolute inset-0 bg-black/60 opacity-0 group-hover/item:opacity-100 flex items-center justify-center text-red-400 font-bold"
-                      aria-label="Remove photo"
-                    >
-                      <Trash2 className="h-4.5 w-4.5" />
-                    </button>
+                    <div className="flex-1 space-y-2 overflow-hidden">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[9px] text-slate-500 truncate font-mono max-w-[120px]">{item.name}</span>
+                        <span className="text-[8px] bg-slate-950 px-1 py-0.5 rounded text-slate-400 font-mono">{item.sizeKB}KB</span>
+                      </div>
+                      <div className="space-y-0.5">
+                        <label className="text-[8px] uppercase font-mono tracking-wider text-slate-400 font-extrabold block">
+                          Alt Text (Search Unique ID) *
+                        </label>
+                        <input
+                          type="text"
+                          value={item.altText}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setUploadQueue(prev => prev.map((q, i) => i === index ? { ...q, altText: val } : q));
+                          }}
+                          className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 text-xs text-indigo-400 focus:outline-none focus:border-indigo-500 font-mono"
+                          placeholder="e.g. bride_dance_01"
+                        />
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>

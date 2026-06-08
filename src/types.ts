@@ -32,6 +32,7 @@ export interface EventPhoto {
   createdAt: string;
   category?: string; // Event Name or Custom category
   isPreview?: boolean; // Set by administrator to allow public previewing
+  altText?: string; // Photographer specified description or unique tag ID
 }
 
 export interface MatchResponse {

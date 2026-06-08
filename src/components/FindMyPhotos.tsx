@@ -187,11 +187,16 @@ export default function FindMyPhotos({
         ? photos.filter((p) => p.projectId === selectedProjectId)
         : photos;
 
-      // Filter photos matching text query (matches ID, containing name or full filename)
+      // Filter photos matching text query (matches ID/Alt Text, containing name or full filename, or custom altText)
       const matches = targetPhotos.filter((p) => {
         const matchId = String(p.id).toLowerCase();
         const matchFileName = String(p.fileName || "").toLowerCase();
-        return matchId.includes(queryVal) || matchFileName.includes(queryVal);
+        const matchAlt = String(p.altText || "").toLowerCase();
+        return (
+          matchId.includes(queryVal) ||
+          matchFileName.includes(queryVal) ||
+          matchAlt.includes(queryVal)
+        );
       });
 
       const mIds = matches.map(p => p.id);
@@ -199,7 +204,7 @@ export default function FindMyPhotos({
       matches.forEach(p => {
         mDetails[p.id] = {
           confidence: 1.00,
-          reasoning: `Matched via Unique ID / Filename text: "${photoIdQuery}".`
+          reasoning: `Matched via Photographer Alt Text / Search ID: "${p.altText || p.id}".`
         };
       });
 
@@ -703,8 +708,8 @@ export default function FindMyPhotos({
                     >
                       {/* Photo Header Metadata / Confidence Check */}
                       <div className="bg-slate-950/80 p-3 flex justify-between items-center border-b border-slate-800 font-mono text-[10px]">
-                        <span className="text-slate-400 text-ellipsis overflow-hidden whitespace-nowrap max-w-[120px]" title={photo.fileName}>
-                          {photo.fileName}
+                        <span className="text-indigo-400 text-ellipsis overflow-hidden whitespace-nowrap max-w-[145px]" title={photo.altText || photo.fileName}>
+                          {photo.altText ? `ID: ${photo.altText}` : photo.fileName}
                         </span>
                         <span className="text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 font-bold shrink-0">
                           {Math.round(details.confidence * 100)}% Match
