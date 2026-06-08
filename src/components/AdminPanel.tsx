@@ -3,7 +3,7 @@ import { UserProfile, Project, EventPhoto } from "../types";
 import { collection, doc, updateDoc, setDoc, deleteDoc, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import { handleFirestoreError, OperationType } from "../utils/firebaseErrors";
-import { Shield, Users, Coins, Image as ImageIcon, Sparkles, Loader2, Award, Zap, Check, UserPlus, FileUp, Database, AlertCircle, TrendingUp } from "lucide-react";
+import { Shield, Users, Coins, Image as ImageIcon, Sparkles, Loader2, Award, Zap, Check, UserPlus, FileUp, Database, AlertCircle, TrendingUp, Trash2, Search, Filter } from "lucide-react";
 
 interface AdminPanelProps {
   projects: Project[];
@@ -30,12 +30,38 @@ export default function AdminPanel({
   // Role Promotion States
   const [promotingUserId, setPromotingUserId] = useState<string | null>(null);
 
+  // Photo management filter states
+  const [photosEventFilter, setPhotosEventFilter] = useState<string>("all");
+  const [photosCategoryFilter, setPhotosCategoryFilter] = useState<string>("all");
+  const [photosSearchQuery, setPhotosSearchQuery] = useState<string>("");
+  const [photoDeleteConfirmId, setPhotoDeleteConfirmId] = useState<string | null>(null);
+  const [isDeletingPhotoId, setIsDeletingPhotoId] = useState<string | null>(null);
+
   // Permission Guard
   const isAdmin = currentProfile?.role === "admin";
 
   const clearAlerts = () => {
     setSuccessMsg(null);
     setErrorMsg(null);
+    setPhotoDeleteConfirmId(null);
+  };
+
+  // Delete event photo from preview collection
+  const handleDeletePhoto = async (photoId: string) => {
+    setIsDeletingPhotoId(photoId);
+    clearAlerts();
+    try {
+      const photoRef = doc(db, "photos", photoId);
+      await deleteDoc(photoRef);
+      setSuccessMsg("Photo deleted successfully from the preview repository.");
+      setPhotoDeleteConfirmId(null);
+      await onRefreshData();
+    } catch (err: any) {
+      setErrorMsg("Failed to delete photo: " + err.message);
+      handleFirestoreError(err, OperationType.DELETE, `photos/${photoId}`);
+    } finally {
+      setIsDeletingPhotoId(null);
+    }
   };
 
   // Change Role in Database
@@ -422,6 +448,181 @@ export default function AdminPanel({
             Seed Mock Spotlight Events & Photos
           </button>
         </div>
+      </div>
+
+      {/* MANAGE SUBMITTED PREVIEW PHOTOS */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl space-y-6">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-800/60 pb-4">
+          <div>
+            <h3 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+              <ImageIcon className="h-5 w-5 text-indigo-400" />
+              Manage Uploaded Preview Photos
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              Supervise, inspect, search, and delete individual watermark/regular upload files currently stored across all spotlight events.
+            </p>
+          </div>
+          <div className="px-3 py-1 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full text-xs font-mono font-bold">
+            Total Available Photos: {photos.length}
+          </div>
+        </div>
+
+        {/* Filters bar */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Search by filename */}
+          <div className="relative">
+            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+              <Search className="h-4 w-4" />
+            </span>
+            <input
+              type="text"
+              placeholder="Search filename..."
+              value={photosSearchQuery}
+              onChange={(e) => setPhotosSearchQuery(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-805 rounded-lg py-2 pl-9 pr-4 text-xs text-white focus:outline-none focus:border-indigo-500"
+            />
+          </div>
+
+          {/* Filter by event */}
+          <div className="relative">
+            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+              <Filter className="h-4 w-4" />
+            </span>
+            <select
+              value={photosEventFilter}
+              onChange={(e) => setPhotosEventFilter(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-850 rounded-lg py-2 pl-9 pr-4 text-xs text-white focus:outline-none focus:border-indigo-500 appearance-none cursor-pointer"
+            >
+              <option value="all">All Events / Spotlight folders</option>
+              {projects.map((proj) => (
+                <option key={proj.id} value={proj.id}>
+                  {proj.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filter by category */}
+          <div className="relative">
+            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+              <Filter className="h-4 w-4" />
+            </span>
+            <select
+              value={photosCategoryFilter}
+              onChange={(e) => setPhotosCategoryFilter(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-850 rounded-lg py-2 pl-9 pr-4 text-xs text-white focus:outline-none focus:border-indigo-500 appearance-none cursor-pointer"
+            >
+              <option value="all">All Photo Categories</option>
+              {Array.from(new Set(photos.map((p) => String(p.category || "General")))).map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Photo list / grid */}
+        {photos.filter((photo) => {
+          if (photosEventFilter !== "all" && photo.projectId !== photosEventFilter) {
+            return false;
+          }
+          if (photosCategoryFilter !== "all" && String(photo.category || "General").toLowerCase() !== photosCategoryFilter.toLowerCase()) {
+            return false;
+          }
+          if (photosSearchQuery.trim() !== "") {
+            const queryVal = photosSearchQuery.toLowerCase();
+            const fileNameMatch = String(photo.fileName || "").toLowerCase().includes(queryVal);
+            const idMatch = String(photo.id || "").toLowerCase().includes(queryVal);
+            return fileNameMatch || idMatch;
+          }
+          return true;
+        }).length === 0 ? (
+          <div className="bg-slate-950/40 border border-dashed border-slate-800 rounded-xl p-8 text-center text-xs text-slate-400">
+            No active photo uploads match the specified filter tags or search queries.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[500px] overflow-y-auto pr-2">
+            {photos.filter((photo) => {
+              if (photosEventFilter !== "all" && photo.projectId !== photosEventFilter) {
+                return false;
+              }
+              if (photosCategoryFilter !== "all" && String(photo.category || "General").toLowerCase() !== photosCategoryFilter.toLowerCase()) {
+                return false;
+              }
+              if (photosSearchQuery.trim() !== "") {
+                const queryVal = photosSearchQuery.toLowerCase();
+                const fileNameMatch = String(photo.fileName || "").toLowerCase().includes(queryVal);
+                const idMatch = String(photo.id || "").toLowerCase().includes(queryVal);
+                return fileNameMatch || idMatch;
+              }
+              return true;
+            }).map((photo) => {
+              const proj = projects.find((p) => p.id === photo.projectId);
+              const projectName = proj ? proj.name : photo.projectId;
+              return (
+                <div
+                  key={photo.id}
+                  className="group relative bg-slate-950 rounded-xl overflow-hidden border border-slate-800 shadow-sm hover:border-slate-750 transition duration-200 flex flex-col h-[220px]"
+                >
+                  <div className="relative flex-grow bg-black overflow-hidden h-[120px]">
+                    <img
+                      src={photo.base64Data}
+                      alt={photo.fileName}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover transition duration-350 group-hover:scale-105"
+                    />
+                    <div className="absolute top-2 left-2">
+                      <span className="text-[9px] bg-slate-900/90 text-indigo-400 font-mono tracking-wide px-1.5 py-0.5 rounded border border-slate-800">
+                        📂 {photo.category || "General"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-900 flex flex-col justify-between flex-grow">
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] text-white font-semibold font-mono truncate" title={photo.fileName}>
+                        {photo.fileName}
+                      </p>
+                      <p className="text-[9px] text-slate-400 truncate" title={projectName}>
+                        🎯 {projectName}
+                      </p>
+                    </div>
+
+                    <div className="mt-2.5">
+                      {photoDeleteConfirmId === photo.id ? (
+                        <div className="flex gap-1.5 w-full">
+                          <button
+                            onClick={() => handleDeletePhoto(photo.id)}
+                            disabled={isDeletingPhotoId === photo.id}
+                            className="flex-grow bg-red-600 hover:bg-red-500 text-white font-bold text-[9px] py-1 px-1 rounded transition text-center cursor-pointer disabled:opacity-50"
+                          >
+                            {isDeletingPhotoId === photo.id ? "Wiping..." : "Confirm Delete"}
+                          </button>
+                          <button
+                            onClick={() => setPhotoDeleteConfirmId(null)}
+                            disabled={isDeletingPhotoId === photo.id}
+                            className="bg-slate-850 hover:bg-slate-800 text-slate-300 font-semibold text-[9px] py-1 px-2 rounded transition cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setPhotoDeleteConfirmId(photo.id)}
+                          className="w-full flex items-center justify-center gap-1 bg-red-950/30 hover:bg-red-900/50 text-red-400 hover:text-red-300 border border-red-900/30 font-bold text-[10px] py-1 rounded transition cursor-pointer"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete Preview Photo
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* DETAILED USERS CREDENTIALS DIRECTORY (Table) */}
