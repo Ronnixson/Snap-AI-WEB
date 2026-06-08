@@ -24,22 +24,21 @@ service cloud.firestore {
       return resource.data;
     }
 
-    // Role-based Access Checks utilizando lookups
-    function getRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-    }
-
+    // Role-based Access Checks utilizando safe inline lookups
     function isAdmin() {
       return isSignedIn() && (
-        (request.auth.token.email == 'ronniemutalya36@gmail.com' && request.auth.token.email_verified == true) ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getRole() == 'admin')
+        (request.auth.token.email == 'ronniemutalya36@gmail.com') ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
       );
     }
 
     function isStaff() {
       return isSignedIn() && (
-        (request.auth.token.email == 'ronniemutalya36@gmail.com' && request.auth.token.email_verified == true) ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (getRole() == 'staff' || getRole() == 'admin'))
+        (request.auth.token.email == 'ronniemutalya36@gmail.com') ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'staff' || 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'))
       );
     }
 
@@ -69,13 +68,15 @@ service cloud.firestore {
 
     function isValidPhoto(data) {
       return data.keys().hasAll(['id', 'projectId', 'base64Data', 'fileName', 'uploaderId', 'createdAt']) &&
-             (data.keys().size() == 6 || (data.keys().size() == 7 && data.category is string && data.category.size() <= 100)) &&
              data.id is string && data.id.size() <= 128 &&
              data.projectId is string && data.projectId.size() <= 128 &&
              data.base64Data is string && data.base64Data.size() <= 2097152 && // Up to 2MB base64 compressed
              data.fileName is string && data.fileName.size() <= 256 &&
              data.uploaderId is string && data.uploaderId.size() <= 128 &&
-             data.createdAt is string;
+             data.createdAt is string &&
+             (!('category' in data) || (data.category is string && data.category.size() <= 100)) &&
+             (!('altText' in data) || (data.altText is string && data.altText.size() <= 1000)) &&
+             (!('isPreview' in data) || data.isPreview is bool);
     }
 
     function isValidSetting(data) {
@@ -83,7 +84,9 @@ service cloud.firestore {
              data.id is string && data.id.size() <= 128 &&
              data.text is string && data.text.size() <= 100 &&
              data.type is string && (data.type == 'text' || data.type == 'logo') &&
-             data.updatedAt is string;
+             data.updatedAt is string &&
+             (!('logoBase64' in data) || data.logoBase64 is string) &&
+             (!('opacity' in data) || (data.opacity is float || data.opacity is int));
     }
 
     // 2. Users Collection Rules
