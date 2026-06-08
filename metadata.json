@@ -1,0 +1,8 @@
+{
+  "name": "Snap AI",
+  "description": "Smart facial-recognition event photography sorting and delivery service. Select projects, upload a selfie, and use AI to match and download high-resolution copies of your professional event photos instantly.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

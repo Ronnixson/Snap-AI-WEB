@@ -1,0 +1,61 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Information about a user, including their system role and metadata.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The authentication UID of the user." },
+        "email": { "type": "string", "description": "The profile email." },
+        "name": { "type": "string", "description": "The user's display name." },
+        "role": { "type": "string", "enum": ["client", "staff", "admin"], "description": "The system role of the user determining access level." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the user was created." }
+      },
+      "required": ["id", "email", "name", "role", "createdAt"]
+    },
+    "Project": {
+      "title": "Project Event",
+      "description": "An event or project containing collections of photos.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The unique ID of the project." },
+        "name": { "type": "string", "description": "The project/event name." },
+        "description": { "type": "string", "description": "Brief details about the event." },
+        "date": { "type": "string", "description": "Date when the event took place." },
+        "location": { "type": "string", "description": "The location of the event." },
+        "coverUrl": { "type": "string", "description": "A preview cover photo for the project." },
+        "creatorId": { "type": "string", "description": "Uploader UID of the project." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of creation." }
+      },
+      "required": ["id", "name", "date", "location", "creatorId", "createdAt"]
+    },
+    "Photo": {
+      "title": "Event Photo",
+      "description": "An image uploaded by a photographer associated with an event.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "A unique ID for the photo." },
+        "projectId": { "type": "string", "description": "The ID of the project event this photo belongs to." },
+        "base64Data": { "type": "string", "description": "The high definition base64 encoded photo content." },
+        "fileName": { "type": "string", "description": "Original file name." },
+        "uploaderId": { "type": "string", "description": "UID of the staff member who uploaded it." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of upload." }
+      },
+      "required": ["id", "projectId", "base64Data", "uploaderId", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profile with role permission levels."
+    },
+    "projects/{projectId}": {
+      "schema": "Project",
+      "description": "Event projects containing basic metadata."
+    },
+    "photos/{photoId}": {
+      "schema": "Photo",
+      "description": "High resolution photos associated with project events."
+    }
+  }
+}

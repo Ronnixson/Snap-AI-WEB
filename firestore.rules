@@ -1,0 +1,140 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 1. Master Catch-All Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Hardened Helper Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Role-based Access Checks utilizando lookups
+    function getRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email == 'ronniemutalya36@gmail.com' && request.auth.token.email_verified == true) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getRole() == 'admin')
+      );
+    }
+
+    function isStaff() {
+      return isSignedIn() && (
+        (request.auth.token.email == 'ronniemutalya36@gmail.com' && request.auth.token.email_verified == true) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (getRole() == 'staff' || getRole() == 'admin'))
+      );
+    }
+
+    // Helper functions for entity validation
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'email', 'name', 'role', 'createdAt']) && 
+             data.keys().size() == 5 &&
+             data.id is string && data.id.size() <= 128 &&
+             data.email is string && data.email.size() <= 256 &&
+             data.name is string && data.name.size() <= 256 &&
+             data.role is string && (data.role == 'client' || data.role == 'staff' || data.role == 'admin') &&
+             data.createdAt is string;
+    }
+
+    function isValidProject(data) {
+      return data.keys().hasAll(['id', 'name', 'description', 'date', 'location', 'coverUrl', 'creatorId', 'createdAt']) &&
+             data.keys().size() == 8 &&
+             data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() <= 200 &&
+             data.description is string && data.description.size() <= 1000 &&
+             data.date is string && data.date.size() <= 100 &&
+             data.location is string && data.location.size() <= 200 &&
+             data.coverUrl is string && data.coverUrl.size() <= 2048 &&
+             data.creatorId is string && data.creatorId.size() <= 128 &&
+             data.createdAt is string;
+    }
+
+    function isValidPhoto(data) {
+      return data.keys().hasAll(['id', 'projectId', 'base64Data', 'fileName', 'uploaderId', 'createdAt']) &&
+             (data.keys().size() == 6 || (data.keys().size() == 7 && data.category is string && data.category.size() <= 100)) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.projectId is string && data.projectId.size() <= 128 &&
+             data.base64Data is string && data.base64Data.size() <= 2097152 && // Up to 2MB base64 compressed
+             data.fileName is string && data.fileName.size() <= 256 &&
+             data.uploaderId is string && data.uploaderId.size() <= 128 &&
+             data.createdAt is string;
+    }
+
+    // 2. Users Collection Rules
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      
+      // On create, a user profile must match authentication uid and default to 'client' role
+      allow create: if isSignedIn() && 
+                    userId == request.auth.uid && 
+                    isValidUser(incoming()) && 
+                    (incoming().role == "client" || 
+                     (incoming().role == "admin" && request.auth.token.email == "ronniemutalya36@gmail.com" && request.auth.token.email_verified == true));
+      
+      // On update: owners can update info (but NOT their role), admins can update everything
+      allow update: if isSignedIn() && (
+        (request.auth.uid == userId && 
+         incoming().role == existing().role && 
+         isValidUser(incoming())) ||
+        isAdmin()
+      );
+      
+      allow delete: if isAdmin();
+    }
+
+    // 3. Projects Collection Rules
+    match /projects/{projectId} {
+      // Projects are publicly queryable for client previews and search
+      allow get, list: if true;
+      
+      // Managing projects is allowed for staff or admin roles
+      allow create: if isValidProject(incoming()) && (
+                      (isStaff() && incoming().creatorId == request.auth.uid) ||
+                      isAdmin()
+                    );
+      allow update: if isValidProject(incoming()) && (
+                      (isStaff() && incoming().creatorId == existing().creatorId) ||
+                      isAdmin()
+                    );
+      allow delete: if isAdmin();
+    }
+
+    // 4. Photos Collection Rules
+    match /photos/{photoId} {
+      // Photos require authentication to search and view
+      allow get, list: if isSignedIn();
+      
+      // Standard writes are permitted for staff or admin roles
+      allow create: if isValidPhoto(incoming()) && (
+                      (isStaff() && incoming().uploaderId == request.auth.uid && exists(/databases/$(database)/documents/projects/$(incoming().projectId))) ||
+                      isAdmin()
+                    );
+                    
+      allow update: if isValidPhoto(incoming()) && (
+                      (isStaff() && incoming().uploaderId == existing().uploaderId && incoming().projectId == existing().projectId) ||
+                      isAdmin()
+                    );
+                    
+      allow delete: if isStaff() || isAdmin();
+    }
+  }
+}

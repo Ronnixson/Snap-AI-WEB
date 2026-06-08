@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-theme-bg: var(--theme-bg);
+  --color-theme-card: var(--theme-card);
+  --color-theme-border: var(--theme-border);
+  --color-theme-text: var(--theme-text);
+  --color-theme-muted: var(--theme-muted);
+}
+
+:root {
+  --theme-bg: #f8fafc; /* slate-50 */
+  --theme-card: #ffffff; /* white */
+  --theme-border: #e2e8f0; /* slate-200 */
+  --theme-text: #0f172a; /* slate-900 */
+  --theme-muted: #475569; /* slate-600 */
+}
+
+.dark {
+  --theme-bg: #020617; /* slate-950 */
+  --theme-card: #0f172a; /* slate-900 */
+  --theme-border: #1e293b; /* slate-800 */
+  --theme-text: #f1f5f9; /* slate-100 */
+  --theme-muted: #94a3b8; /* slate-400 */
+}
+
+/* Custom Sleek Scrollbars across all viewport sizes - keeping features visible and elegant without chunky default bars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35); /* Elegant translucent slate */
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.55);
+}
+
+/* Firefox custom indicator fallback */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+
+
+
