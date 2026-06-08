@@ -123,8 +123,12 @@ export default function AuthBar({ onProfileLoaded, currentProfile, theme, onTogg
           {/* Social Sign In or Account controls */}
           {currentProfile ? (
             <div className="flex items-center gap-3">
-              <div className="text-right hidden sm:block">
-                <p className="text-xs font-medium text-theme-text">{currentProfile.name}</p>
+              <div className="text-right hidden sm:block font-sans">
+                <p className="text-xs font-medium text-theme-text">
+                  {currentProfile.name && currentProfile.name !== "Anonymous Attendee" 
+                    ? currentProfile.name 
+                    : currentProfile.email.split("@")[0]}
+                </p>
                 <p className="text-[9px] text-sky-500 dark:text-sky-400 font-mono flex items-center gap-1 justify-end uppercase">
                   {currentProfile.role === "admin" && <Shield className="h-2 w-2" />}
                   {currentProfile.role === "staff" && <Camera className="h-2 w-2" />}

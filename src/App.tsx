@@ -176,6 +176,18 @@ export default function App() {
     window.scrollTo({ top: 350, behavior: "smooth" });
   };
 
+  // Greeting name resolver (Name or Email username)
+  const getGreetingName = (profile: UserProfile | null) => {
+    if (!profile) return "";
+    if (profile.name && profile.name.trim() !== "" && profile.name !== "Anonymous Attendee") {
+      return profile.name;
+    }
+    if (profile.email) {
+      return profile.email.split("@")[0];
+    }
+    return "User";
+  };
+
   return (
     <div className="min-h-screen bg-theme-bg text-theme-text flex flex-col justify-between font-sans transition-colors duration-250">
       
@@ -189,6 +201,24 @@ export default function App() {
 
       {/* Main Container */}
       <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 py-8">
+
+        {/* Dynamic Personal Greeting Header */}
+        {currentProfile && (
+          <div className="mb-6 bg-gradient-to-r from-sky-500/10 via-indigo-500/10 to-transparent border border-theme-border rounded-xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <h2 className="text-lg sm:text-xl font-bold tracking-tight text-theme-text font-sans">
+                Welcome back, <span className="bg-gradient-to-r from-sky-400 to-indigo-400 bg-clip-text text-transparent font-extrabold">{getGreetingName(currentProfile)}</span>! 👋
+              </h2>
+              <p className="text-xs text-theme-muted">
+                Signed in securely as <strong className="text-theme-text font-mono font-normal">{currentProfile.email}</strong> • Role level: <span className="text-sky-500 font-mono text-[10px] uppercase font-bold">{currentProfile.role}</span>
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[10px] text-theme-muted font-mono uppercase tracking-wider font-semibold">Active Session</span>
+            </div>
+          </div>
+        )}
         
         {/* Portal Horizontal Navigation menu links */}
         <div className="flex border-b border-theme-border pb-px mb-8 overflow-x-auto gap-1 sm:gap-2">
