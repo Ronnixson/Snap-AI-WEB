@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { onSnapshot, collection, query, orderBy, limit } from "firebase/firestore";
+import { onSnapshot, collection, query, orderBy, limit, doc } from "firebase/firestore";
 import { auth, db } from "./firebase";
-import { UserProfile, Project, EventPhoto } from "./types";
+import { UserProfile, Project, EventPhoto, SystemSetting } from "./types";
 import { handleFirestoreError, OperationType } from "./utils/firebaseErrors";
 import AuthBar from "./components/AuthBar";
 import PromoSlider from "./components/PromoSlider";
@@ -42,6 +42,33 @@ export default function App() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [photos, setPhotos] = useState<EventPhoto[]>([]);
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
+  const [watermarkSetting, setWatermarkSetting] = useState<SystemSetting | null>(null);
+
+  // Listen to Watermark Settings Real-Time
+  useEffect(() => {
+    const watermarkDocRef = doc(db, "settings", "watermark");
+    const unsubscribe = onSnapshot(
+      watermarkDocRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          setWatermarkSetting(docSnap.data() as SystemSetting);
+        } else {
+          // Default fallbacks with text SNAP-AI
+          setWatermarkSetting({
+            id: "watermark",
+            text: "SNAP-AI",
+            type: "text",
+            opacity: 0.4,
+            updatedAt: new Date().toISOString()
+          });
+        }
+      },
+      (error) => {
+        console.warn("Watermark settings fetch failed or permissions restricted:", error);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
 
   // Selected sub-state
   const [activeTab, setActiveTab] = useState<"showcase" | "search" | "staff" | "admin">("showcase");
@@ -441,6 +468,7 @@ export default function App() {
                   selectedProjectId={selectedProjectId}
                   onSelectProjectId={setSelectedProjectId}
                   currentUserProfile={currentProfile}
+                  watermarkSetting={watermarkSetting}
                 />
               ) : (
                 <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center max-w-xl mx-auto my-6 shadow-2xl">
@@ -477,6 +505,7 @@ export default function App() {
               profiles={profiles}
               currentProfile={currentProfile}
               onRefreshData={refreshAllData}
+              watermarkSetting={watermarkSetting}
             />
           ) : activeTab === "admin" ? (
             <div className="bg-theme-bg/50 border border-theme-border rounded-xl p-8 text-center max-w-lg mx-auto">

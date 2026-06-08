@@ -42,6 +42,20 @@
         "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of upload." }
       },
       "required": ["id", "projectId", "base64Data", "uploaderId", "createdAt"]
+    },
+    "SystemSetting": {
+      "title": "System Setting",
+      "description": "General settings of the Snap AI workspace, such as watermark overlay configs.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The unique document ID (e.g. watermark)." },
+        "text": { "type": "string", "description": "Text watermark, e.g. SNAP-AI" },
+        "type": { "type": "string", "enum": ["text", "logo"], "description": "The watermark overlay type" },
+        "logoBase64": { "type": "string", "description": "Watermark logo base64 image representation, if uploaded" },
+        "opacity": { "type": "number", "description": "Watermark opacity value from 0 to 1" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last updated timestamp." }
+      },
+      "required": ["id", "text", "type", "updatedAt"]
     }
   },
   "firestore": {
@@ -56,6 +70,10 @@
     "photos/{photoId}": {
       "schema": "Photo",
       "description": "High resolution photos associated with project events."
+    },
+    "settings/{settingId}": {
+      "schema": "SystemSetting",
+      "description": "Workplace general configurations and watermark images."
     }
   }
 }

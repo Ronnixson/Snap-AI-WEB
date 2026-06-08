@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Project, EventPhoto } from "../types";
+import { Project, EventPhoto, SystemSetting } from "../types";
 import { Camera, Upload, Check, Loader2, Sparkles, Download, CreditCard, Lock, UserCheck, RefreshCw, AlertCircle, Eye, HelpCircle, Search, Filter } from "lucide-react";
 
 interface FindMyPhotosProps {
@@ -8,6 +8,7 @@ interface FindMyPhotosProps {
   selectedProjectId: string;
   onSelectProjectId: (id: string) => void;
   currentUserProfile: any;
+  watermarkSetting?: SystemSetting | null;
 }
 
 export default function FindMyPhotos({
@@ -16,6 +17,7 @@ export default function FindMyPhotos({
   selectedProjectId,
   onSelectProjectId,
   currentUserProfile,
+  watermarkSetting,
 }: FindMyPhotosProps) {
   const [selfie, setSelfie] = useState<string | null>(null);
   const [isMatching, setIsMatching] = useState(false);
@@ -229,23 +231,47 @@ export default function FindMyPhotos({
         if (ctx) {
           ctx.drawImage(img, 0, 0);
           
-          // Draw watermark
-          ctx.strokeStyle = "rgba(255, 255, 255, 0.45)";
-          ctx.lineWidth = 3;
-          ctx.beginPath();
-          ctx.moveTo(0, 0);
-          ctx.lineTo(canvas.width, canvas.height);
-          ctx.moveTo(canvas.width, 0);
-          ctx.lineTo(0, canvas.height);
-          ctx.stroke();
+          const watermarkText = watermarkSetting?.text || "SNAP-AI";
+          const watermarkOpacity = watermarkSetting?.opacity !== undefined ? watermarkSetting.opacity : 0.45;
+          const watermarkType = watermarkSetting?.type || "text";
+          const logoData = watermarkSetting?.logoBase64;
 
-          ctx.fillStyle = "rgba(255,255,255,0.7)";
-          ctx.font = "bold 28px sans-serif";
-          ctx.textAlign = "center";
-          ctx.fillText("SNAP AI PREVIEW WATERMARK", canvas.width / 2, canvas.height / 2);
-          
-          link.href = canvas.toDataURL("image/jpeg", 0.9);
-          link.click();
+          if (watermarkType === "logo" && logoData) {
+            // Render logo overlay
+            const logoImg = new Image();
+            logoImg.onload = () => {
+              ctx.globalAlpha = watermarkOpacity;
+              const size = Math.min(canvas.width, canvas.height) * 0.4;
+              const x = (canvas.width - size) / 2;
+              const y = (canvas.height - size) / 2;
+              ctx.drawImage(logoImg, x, y, size, size);
+              ctx.globalAlpha = 1.0;
+              
+              link.href = canvas.toDataURL("image/jpeg", 0.9);
+              link.click();
+            };
+            logoImg.src = logoData;
+          } else {
+            // Render text watermark diagonal cross and text tag
+            ctx.strokeStyle = `rgba(255, 255, 255, ${watermarkOpacity * 0.6})`;
+            ctx.lineWidth = Math.max(2, Math.floor(canvas.width / 400));
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.moveTo(canvas.width, 0);
+            ctx.lineTo(0, canvas.height);
+            ctx.stroke();
+
+            ctx.fillStyle = `rgba(255, 255, 255, ${watermarkOpacity})`;
+            const fontSize = Math.max(16, Math.floor(canvas.width / 18));
+            ctx.font = `bold ${fontSize}px sans-serif`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(watermarkText, canvas.width / 2, canvas.height / 2);
+            
+            link.href = canvas.toDataURL("image/jpeg", 0.9);
+            link.click();
+          }
         }
       };
       img.src = photo.base64Data;
@@ -704,12 +730,27 @@ export default function FindMyPhotos({
                         {/* Interactive Watermark Overlay if Locked */}
                         {!isUnlocked && (
                           <div className="absolute inset-0 bg-slate-950/20 flex flex-col items-center justify-center p-4">
-                            {/* Watermark diagonal line blocks */}
-                            <div className="absolute inset-0 border-[3px] border-white/10 flex items-center justify-center pointer-events-none">
-                              <span className="transform rotate-[-30deg] font-mono tracking-[6px] text-[10px] text-white/20 uppercase font-extrabold select-none p-1 border border-white/10 bg-black/40 rounded shadow-md">
-                                SNAP AI TRIAL PREVIEW
-                              </span>
-                            </div>
+                            {/* Watermark diagonal line blocks or logo */}
+                            {watermarkSetting?.type === "logo" && watermarkSetting?.logoBase64 ? (
+                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-10">
+                                <img
+                                  src={watermarkSetting.logoBase64}
+                                  alt="Secure Logo Watermark"
+                                  className="max-w-[70%] max-h-[70%] object-contain select-none pointer-events-none"
+                                  style={{ opacity: watermarkSetting.opacity !== undefined ? watermarkSetting.opacity : 0.45 }}
+                                  referrerPolicy="no-referrer"
+                                />
+                              </div>
+                            ) : (
+                              <div className="absolute inset-0 border-[3px] border-white/10 flex items-center justify-center pointer-events-none">
+                                <span 
+                                  className="transform rotate-[-30deg] font-mono tracking-[4px] text-[11px] sm:text-[13px] text-white uppercase font-extrabold select-none p-2 border border-white/10 bg-black/60 rounded shadow-md text-center max-w-[90%] break-all"
+                                  style={{ opacity: watermarkSetting?.opacity !== undefined ? watermarkSetting.opacity : 0.45 }}
+                                >
+                                  {watermarkSetting?.text || "SNAP-AI"}
+                                </span>
+                              </div>
+                            )}
 
                             <div className="z-10 bg-slate-950/90 py-3 px-4 rounded-xl border border-slate-800 max-w-[220px] text-center shadow-lg space-y-2 mt-auto">
                               <p className="text-[10px] text-slate-300">

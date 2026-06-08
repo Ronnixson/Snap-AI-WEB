@@ -78,6 +78,14 @@ service cloud.firestore {
              data.createdAt is string;
     }
 
+    function isValidSetting(data) {
+      return data.keys().hasAll(['id', 'text', 'type', 'updatedAt']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.text is string && data.text.size() <= 100 &&
+             data.type is string && (data.type == 'text' || data.type == 'logo') &&
+             data.updatedAt is string;
+    }
+
     // 2. Users Collection Rules
     match /users/{userId} {
       allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
@@ -135,6 +143,14 @@ service cloud.firestore {
                     );
                     
       allow delete: if isStaff() || isAdmin();
+    }
+
+    // 5. System General Settings
+    match /settings/{settingId} {
+      allow get: if true; // Any client or visitor can read the watermark configuration
+      allow list: if isSignedIn();
+      allow create, update: if isAdmin() && isValidSetting(incoming());
+      allow delete: if isAdmin();
     }
   }
 }

@@ -39,3 +39,12 @@ export interface MatchResponse {
   confidence: number[];
   reasoning: string;
 }
+
+export interface SystemSetting {
+  id: string; // "watermark"
+  text: string; // Default: SNAP-AI
+  type: "text" | "logo"; // "text" or "logo" overlay
+  logoBase64?: string; // High quality custom base64-encoded logo image
+  opacity: number; // e.g. 0.35, 0.50
+  updatedAt: string;
+}

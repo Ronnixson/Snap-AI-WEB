@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { UserProfile, Project, EventPhoto } from "../types";
+import { UserProfile, Project, EventPhoto, SystemSetting } from "../types";
 import { collection, doc, updateDoc, setDoc, deleteDoc, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import { handleFirestoreError, OperationType } from "../utils/firebaseErrors";
@@ -11,6 +11,7 @@ interface AdminPanelProps {
   profiles: UserProfile[];
   currentProfile: UserProfile | null;
   onRefreshData: () => Promise<void>;
+  watermarkSetting?: SystemSetting | null;
 }
 
 export default function AdminPanel({
@@ -19,6 +20,7 @@ export default function AdminPanel({
   profiles,
   currentProfile,
   onRefreshData,
+  watermarkSetting,
 }: AdminPanelProps) {
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -36,6 +38,62 @@ export default function AdminPanel({
   const [photosSearchQuery, setPhotosSearchQuery] = useState<string>("");
   const [photoDeleteConfirmId, setPhotoDeleteConfirmId] = useState<string | null>(null);
   const [isDeletingPhotoId, setIsDeletingPhotoId] = useState<string | null>(null);
+
+  // Watermark Settings States
+  const [wmType, setWmType] = useState<"text" | "logo">("text");
+  const [wmText, setWmText] = useState<string>("SNAP-AI");
+  const [wmOpacity, setWmOpacity] = useState<number>(0.4);
+  const [wmLogo, setWmLogo] = useState<string | null>(null);
+  const [isSavingWatermark, setIsSavingWatermark] = useState<boolean>(false);
+
+  // Synchronize when prop loads or updates
+  useEffect(() => {
+    if (watermarkSetting) {
+      setWmType(watermarkSetting.type);
+      setWmText(watermarkSetting.text);
+      setWmOpacity(watermarkSetting.opacity);
+      setWmLogo(watermarkSetting.logoBase64 || null);
+    }
+  }, [watermarkSetting]);
+
+  const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 1.5 * 1024 * 1024) {
+        setErrorMsg("Logo image size should not exceed 1.5MB to fit database bounds.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setWmLogo(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSaveWatermark = async () => {
+    setIsSavingWatermark(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const docRef = doc(db, "settings", "watermark");
+      await setDoc(docRef, {
+        id: "watermark",
+        text: wmText || "SNAP-AI",
+        type: wmType,
+        logoBase64: wmLogo || "",
+        opacity: wmOpacity,
+        updatedAt: new Date().toISOString()
+      });
+      setSuccessMsg("IP protection watermark updated successfully across all photo previews!");
+      if (onRefreshData) onRefreshData();
+    } catch (err: any) {
+      console.error("Watermark save failed:", err);
+      setErrorMsg("Failed to store watermark settings: " + err.message);
+    } finally {
+      setIsSavingWatermark(false);
+    }
+  };
 
   // Permission Guard
   const isAdmin = currentProfile?.role === "admin";
@@ -433,6 +491,197 @@ export default function AdminPanel({
             <div className="space-y-1">
               <span className="font-bold text-slate-300">4. Real-time Subscription</span>
               <p className="text-[11px] text-slate-400 leading-normal">Utilizes Google Firestore real-time websockets (with local cache fallbacks) to feed 200+ users instantly.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* INTELLECTUAL PROPERTY COGNITIVE WATERMARK CONTROL PANEL */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl space-y-6">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-800/60 pb-4">
+          <div>
+            <h3 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+              <Shield className="h-5 w-5 text-indigo-400" />
+              Intellectual Property Protection (Watermark Panel)
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              Apply overlays to any unpurchased previews automatically. Protect photographic assets via custom logos or brand signatures.
+            </p>
+          </div>
+          <div className="px-3 py-1 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full text-xs font-mono font-bold flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
+            Active Engine: SNAP-AI Protected
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Form Side */}
+          <div className="lg:col-span-7 space-y-5">
+            {/* Type selector */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-300 uppercase font-mono block">Watermark Type</label>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setWmType("text")}
+                  className={`py-2.5 rounded-lg border font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                    wmType === "text"
+                      ? "bg-indigo-600 border-indigo-500 text-white shadow-lg"
+                      : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
+                  }`}
+                >
+                  Text signature
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWmType("logo")}
+                  className={`py-2.5 rounded-lg border font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                    wmType === "logo"
+                      ? "bg-indigo-600 border-indigo-500 text-white shadow-lg"
+                      : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
+                  }`}
+                >
+                  Custom Brand Logo Overlay
+                </button>
+              </div>
+            </div>
+
+            {/* Config options based on type */}
+            {wmType === "text" ? (
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-300 uppercase font-mono block">Watermark Label Text</label>
+                <input
+                  type="text"
+                  maxLength={100}
+                  value={wmText}
+                  onChange={(e) => setWmText(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition"
+                  placeholder="e.g. SNAP-AI"
+                />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-slate-300 uppercase font-mono block">Upload Watermark Logo (Base64 file)</label>
+                <div className="border border-dashed border-slate-800 hover:border-slate-700 bg-slate-950/60 rounded-xl p-4 transition text-center relative flex flex-col items-center justify-center space-y-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoFileChange}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    title="Choose customized branding logomark overlay"
+                  />
+                  {wmLogo ? (
+                    <div className="relative shrink-0 max-w-[80px]">
+                      <img src={wmLogo} alt="Custom watermark preview logo" className="max-h-16 object-contain rounded border border-slate-800 bg-slate-950 p-1" />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setWmLogo(null);
+                        }}
+                        className="absolute -top-1.5 -right-1.5 bg-red-650 text-white rounded-full p-0.5 text-[8px] font-bold h-4 w-4 hover:bg-red-500 flex items-center justify-center cursor-pointer"
+                        title="Remove logo file"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <FileUp className="h-6 w-6 text-slate-500" />
+                  )}
+                  <span className="text-[11px] text-slate-400">
+                    {wmLogo ? "Logo Loaded successfully. Click to replace." : "Drag & drop or click to upload PNG/JPG logo file"}
+                  </span>
+                  <span className="text-[9px] text-slate-500 font-mono">Max size: 1.5MB (Fits real-time DB limits)</span>
+                </div>
+              </div>
+            )}
+
+            {/* Opacity slider */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs">
+                <label className="font-bold text-slate-300 uppercase font-mono">Overlay Opacity / Transparency</label>
+                <span className="text-indigo-400 font-mono font-bold">{Math.round(wmOpacity * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0.1"
+                max="1.0"
+                step="0.05"
+                value={wmOpacity}
+                onChange={(e) => setWmOpacity(parseFloat(e.target.value))}
+                className="w-full accent-indigo-500 bg-slate-950 h-2 rounded cursor-pointer"
+              />
+              <div className="flex justify-between text-[9px] text-slate-500 font-mono">
+                <span>10% (More subtle)</span>
+                <span>100% (High security visibility)</span>
+              </div>
+            </div>
+
+            {/* Save trigger button */}
+            <button
+              onClick={handleSaveWatermark}
+              disabled={isSavingWatermark}
+              className="w-full bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold text-xs py-2.5 rounded-lg shadow-lg shadow-indigo-600/10 flex items-center justify-center gap-2 cursor-pointer transition"
+            >
+              {isSavingWatermark ? (
+                <Loader2 className="h-4 w-4 animate-spin text-white" />
+              ) : (
+                <Shield className="h-4 w-4 text-white" />
+              )}
+              Save Watermark Configuration
+            </button>
+          </div>
+
+          {/* Real-time Simulator Side */}
+          <div className="lg:col-span-5 bg-slate-950/60 p-5 rounded-xl border border-slate-800 flex flex-col justify-between space-y-4">
+            <div>
+              <h4 className="text-xs font-bold text-white uppercase font-mono tracking-wider flex items-center gap-1">
+                <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
+                Live Watermark Simulator
+              </h4>
+              <p className="text-[10px] text-slate-400 mt-1 leading-normal">
+                Observe the live visual protection overlay on high-resolution preview canvases before saving.
+              </p>
+            </div>
+
+            {/* Dynamic visual mockup canvas */}
+            <div className="relative w-full h-44 rounded-lg overflow-hidden border border-slate-800 bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-indigo-900 via-slate-905 to-slate-950 flex flex-col items-center justify-center p-4">
+              {/* Grid backdrop */}
+              <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:14px_24px] pointer-events-none" />
+              
+              <div className="z-0 text-center space-y-1 select-none pointer-events-none">
+                <ImageIcon className="h-8 w-8 text-indigo-400/15 mx-auto animate-pulse" />
+                <span className="text-[9px] uppercase font-mono tracking-widest text-slate-500 font-bold">Simulated HD Photograph preview</span>
+              </div>
+
+              {/* Simulated visual watermark rendering */}
+              {wmType === "logo" && wmLogo ? (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-6">
+                  <img
+                    src={wmLogo}
+                    alt="Watermark Simulation Logo"
+                    className="max-w-[70%] max-h-[70%] object-contain select-none pointer-events-none"
+                    style={{ opacity: wmOpacity }}
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+              ) : (
+                <div className="absolute inset-0 border-2 border-white/5 flex items-center justify-center pointer-events-none">
+                  <span
+                    className="transform rotate-[-25deg] font-mono tracking-[4px] text-xs text-white uppercase font-black select-none p-2 border border-white/10 bg-black/70 rounded shadow-lg text-center max-w-[85%] break-all"
+                    style={{ opacity: wmOpacity }}
+                  >
+                    {wmText || "SNAP-AI"}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-slate-900/60 p-2.5 rounded border border-slate-800/80 text-[10px] text-slate-400 flex items-start gap-1.5 leading-normal">
+              <Check className="h-3.5 w-3.5 text-indigo-400 shrink-0 mt-0.5" />
+              <span>
+                Applying {Math.round(wmOpacity * 100)}% transparent {wmType === "logo" ? "brand graphic" : `"${wmText || "SNAP-AI"}" key text`} to preview cards instantly.
+              </span>
             </div>
           </div>
         </div>
