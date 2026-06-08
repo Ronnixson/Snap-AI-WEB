@@ -3,7 +3,7 @@ import { UserProfile, Project, EventPhoto } from "../types";
 import { collection, doc, updateDoc, setDoc, deleteDoc, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import { handleFirestoreError, OperationType } from "../utils/firebaseErrors";
-import { Shield, Users, Coins, Image as ImageIcon, Sparkles, Loader2, Award, Zap, Check, UserPlus, FileUp, Database, AlertCircle, TrendingUp, Trash2, Search, Filter } from "lucide-react";
+import { Shield, Users, Coins, Image as ImageIcon, Sparkles, Loader2, Award, Zap, Check, UserPlus, FileUp, Database, AlertCircle, TrendingUp, Trash2, Search, Filter, Eye, EyeOff } from "lucide-react";
 
 interface AdminPanelProps {
   projects: Project[];
@@ -61,6 +61,20 @@ export default function AdminPanel({
       handleFirestoreError(err, OperationType.DELETE, `photos/${photoId}`);
     } finally {
       setIsDeletingPhotoId(null);
+    }
+  };
+
+  // Toggle preview status of photo
+  const handleTogglePreview = async (photoId: string, currentIsPreview: boolean) => {
+    clearAlerts();
+    try {
+      const photoRef = doc(db, "photos", photoId);
+      await updateDoc(photoRef, { isPreview: !currentIsPreview });
+      setSuccessMsg(`Photo preview status updated to ${!currentIsPreview ? "Visible (Showcase)" : "Hidden (Private)"}!`);
+      await onRefreshData();
+    } catch (err: any) {
+      setErrorMsg("Failed to update preview status: " + err.message);
+      handleFirestoreError(err, OperationType.UPDATE, `photos/${photoId}`);
     }
   };
 
@@ -559,23 +573,35 @@ export default function AdminPanel({
               return true;
             }).map((photo) => {
               const proj = projects.find((p) => p.id === photo.projectId);
-              const projectName = proj ? proj.name : photo.projectId;
+              const projectName = photo.projectId === "individual" ? "Individual Photo" : (proj ? proj.name : photo.projectId);
               return (
                 <div
                   key={photo.id}
-                  className="group relative bg-slate-950 rounded-xl overflow-hidden border border-slate-800 shadow-sm hover:border-slate-750 transition duration-200 flex flex-col h-[220px]"
+                  className="group relative bg-slate-950 rounded-xl overflow-hidden border border-slate-800 shadow-sm hover:border-slate-750 transition duration-200 flex flex-col h-[290px]"
                 >
-                  <div className="relative flex-grow bg-black overflow-hidden h-[120px]">
+                  <div className="relative bg-black overflow-hidden h-[120px] shrink-0">
                     <img
                       src={photo.base64Data}
                       alt={photo.fileName}
                       referrerPolicy="no-referrer"
                       className="w-full h-full object-cover transition duration-350 group-hover:scale-105"
                     />
-                    <div className="absolute top-2 left-2">
+                    <div className="absolute top-2 left-2 flex flex-col gap-1">
                       <span className="text-[9px] bg-slate-900/90 text-indigo-400 font-mono tracking-wide px-1.5 py-0.5 rounded border border-slate-800">
                         📂 {photo.category || "General"}
                       </span>
+                    </div>
+                    {/* Status badge in top right */}
+                    <div className="absolute top-2 right-2">
+                      {photo.isPreview ? (
+                        <span className="text-[9px] bg-emerald-500/20 text-emerald-405 border border-emerald-500/35 font-mono px-1.5 py-0.5 rounded font-bold">
+                          👁️ PREVIEW
+                        </span>
+                      ) : (
+                        <span className="text-[9px] bg-slate-900/95 text-slate-400 border border-slate-800 font-mono px-1.5 py-0.5 rounded">
+                          🔒 PRIVATE
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -589,15 +615,37 @@ export default function AdminPanel({
                       </p>
                     </div>
 
-                    <div className="mt-2.5">
+                    <div className="space-y-1.5 mt-2">
+                      {/* Set/Unset preview toggler */}
+                      <button
+                        onClick={() => handleTogglePreview(photo.id, !!photo.isPreview)}
+                        className={`w-full flex items-center justify-center gap-1 py-1 rounded transition text-[9px] font-bold cursor-pointer border ${
+                          photo.isPreview
+                            ? "bg-indigo-950/40 text-indigo-400 border-indigo-900/40 hover:bg-indigo-900/40"
+                            : "bg-slate-950 text-slate-300 border-slate-800 hover:bg-slate-800"
+                        }`}
+                      >
+                        {photo.isPreview ? (
+                          <>
+                            <EyeOff className="h-3 w-3" />
+                            Remove from Preview
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="h-3 w-3" />
+                            Make Public Preview
+                          </>
+                        )}
+                      </button>
+
                       {photoDeleteConfirmId === photo.id ? (
-                        <div className="flex gap-1.5 w-full">
+                        <div className="flex gap-1 w-full">
                           <button
                             onClick={() => handleDeletePhoto(photo.id)}
                             disabled={isDeletingPhotoId === photo.id}
-                            className="flex-grow bg-red-600 hover:bg-red-500 text-white font-bold text-[9px] py-1 px-1 rounded transition text-center cursor-pointer disabled:opacity-50"
+                            className="flex-grow bg-red-600 hover:bg-red-500 text-white font-bold text-[9px] py-1 rounded transition text-center cursor-pointer disabled:opacity-50"
                           >
-                            {isDeletingPhotoId === photo.id ? "Wiping..." : "Confirm Delete"}
+                            {isDeletingPhotoId === photo.id ? "Wiping..." : "Confirm"}
                           </button>
                           <button
                             onClick={() => setPhotoDeleteConfirmId(null)}
@@ -610,10 +658,10 @@ export default function AdminPanel({
                       ) : (
                         <button
                           onClick={() => setPhotoDeleteConfirmId(photo.id)}
-                          className="w-full flex items-center justify-center gap-1 bg-red-950/30 hover:bg-red-900/50 text-red-400 hover:text-red-300 border border-red-900/30 font-bold text-[10px] py-1 rounded transition cursor-pointer"
+                          className="w-full flex items-center justify-center gap-1 bg-red-950/30 hover:bg-red-900/50 text-red-400 hover:text-red-300 border border-red-900/35 font-bold text-[9px] py-1 rounded transition cursor-pointer"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Delete Preview Photo
+                          <Trash2 className="h-3 w-3" />
+                          Delete Photo
                         </button>
                       )}
                     </div>

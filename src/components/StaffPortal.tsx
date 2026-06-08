@@ -33,8 +33,8 @@ export default function StaffPortal({
   const [isCreatingProject, setIsCreatingProject] = useState(false);
 
   // Upload Photos states
-  const [targetProjectId, setTargetProjectId] = useState("");
-  const [uploadCategory, setUploadCategory] = useState("");
+  const [targetProjectId, setTargetProjectId] = useState("individual");
+  const [uploadCategory, setUploadCategory] = useState("Individual");
   const [uploadQueue, setUploadQueue] = useState<{ name: string; base64: string; sizeKB: number }[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -44,8 +44,10 @@ export default function StaffPortal({
     const proj = projects.find((p) => p.id === projectId);
     if (proj) {
       setUploadCategory(proj.name);
+    } else if (projectId === "individual") {
+      setUploadCategory("Individual");
     } else {
-      setUploadCategory("");
+      setUploadCategory("General");
     }
   };
 
@@ -186,10 +188,7 @@ export default function StaffPortal({
 
   // Upload Batch photos to Database
   const handleUploadPhotos = async () => {
-    if (!targetProjectId) {
-      setError("Please select a target project event compilation.");
-      return;
-    }
+    const finalProjectId = targetProjectId || "individual";
     if (uploadQueue.length === 0) {
       setError("Upload queue is empty. Choose photo files first.");
       return;
@@ -201,18 +200,20 @@ export default function StaffPortal({
 
     let uploadedCount = 0;
     try {
+      const finalCategory = uploadCategory.trim() || (finalProjectId === "individual" ? "Individual" : "General");
       for (const item of uploadQueue) {
         const photoId = `photo_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
         const ref = doc(db, "photos", photoId);
 
         const photoObj: EventPhoto = {
           id: photoId,
-          projectId: targetProjectId,
+          projectId: finalProjectId,
           base64Data: item.base64,
           fileName: item.name,
           uploaderId: currentProfile?.id || "anonymous_photographer",
           createdAt: new Date().toISOString(),
-          category: uploadCategory.trim() || "General",
+          category: finalCategory,
+          isPreview: false, // Default is false so it is stored privately for face scan matching only
         };
 
         await setDoc(ref, photoObj);
@@ -220,7 +221,7 @@ export default function StaffPortal({
         setUploadProgress(Math.round((uploadedCount / uploadQueue.length) * 100));
       }
 
-      setSuccess(`Successfully posted ${uploadedCount} HD photos to event gallery!`);
+      setSuccess(`Successfully posted ${uploadedCount} HD photos. They are stored securely for face matching/retrieval!`);
       setUploadQueue([]);
       await onRefreshData();
     } catch (err: any) {
@@ -455,21 +456,25 @@ export default function StaffPortal({
             <div className="md:col-span-1 space-y-4">
               <div className="bg-slate-950 border border-slate-850 rounded-xl p-4">
                 <label className="block text-xs uppercase font-mono tracking-wider text-slate-400 font-bold mb-2">
-                  1. Target Event Compilation *
+                  1. Target Event Compilation (Optional)
                 </label>
                 <select
                   value={targetProjectId}
                   onChange={(e) => handleSelectProject(e.target.value)}
                   className="w-full bg-slate-900 text-slate-200 border border-slate-750 px-3 py-2 text-xs rounded-lg focus:outline-none"
                 >
-                  <option value="">-- Choose Spotlight Event --</option>
+                  <option value="individual">-- No Event (Individual Photo/Private) --</option>
                   {projects.map((p) => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
                 {targetProjectId && (
                   <p className="text-[10px] text-slate-400 font-mono mt-2">
-                    Current images uploaded to project: <strong className="text-sky-400">{photos.filter(p => p.projectId === targetProjectId).length} photos</strong>
+                    {targetProjectId === "individual" ? (
+                      <span>Current private individual uploads: <strong className="text-amber-400">{photos.filter(p => p.projectId === "individual").length} photos</strong></span>
+                    ) : (
+                      <span>Current images uploaded to project: <strong className="text-sky-400">{photos.filter(p => p.projectId === targetProjectId).length} photos</strong></span>
+                    )}
                   </p>
                 )}
 

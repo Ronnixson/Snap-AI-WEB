@@ -47,6 +47,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<"showcase" | "search" | "staff" | "admin">("showcase");
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [selectedShowcaseCategory, setSelectedShowcaseCategory] = useState<string>("all");
+  const [showcaseEventQuery, setShowcaseEventQuery] = useState<string>("");
 
   // Securely reset activeTab if permissions change or user logs out
   useEffect(() => {
@@ -218,131 +219,165 @@ export default function App() {
         <div>
           {activeTab === "showcase" && (
             <div className="space-y-12">
-              
-              {/* Slider SPOTLIGHT preview */}
-              <PromoSlider
-                onSelectProject={handleSelectSpotlight}
-                projects={projects}
-                photos={photos}
-              />
+              {(() => {
+                const previewPhotos = photos.filter((p) => !!p.isPreview);
+                const displayedPhotos = previewPhotos
+                  .filter(
+                    (p) =>
+                      selectedShowcaseCategory === "all" ||
+                      String(p.category || "General").toLowerCase() === selectedShowcaseCategory.toLowerCase()
+                  )
+                  .filter((p) => {
+                    if (!showcaseEventQuery || showcaseEventQuery.trim() === "") return true;
+                    const proj = projects.find((proj) => proj.id === p.projectId);
+                    const projName = p.projectId === "individual" ? "Individual Photo" : (proj ? proj.name : "Company Item");
+                    return projName.toLowerCase().includes(showcaseEventQuery.toLowerCase());
+                  });
 
-              {/* SMOOTH CATEGORIZED GALLERY EXPLORER */}
-              <div className="bg-theme-card border border-theme-border rounded-2xl p-6 sm:p-8 shadow-md dark:shadow-xl space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-theme-border pb-4">
-                  <div>
-                    <h3 className="text-xl font-bold tracking-tight text-theme-text flex items-center gap-2">
-                      <span className="p-1.5 rounded-lg bg-sky-500/15 text-sky-500">
-                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                      </span>
-                      Event Gallery Catalog
-                    </h3>
-                    <p className="text-theme-muted text-xs mt-1">
-                      Browse and filter compiled snapshots smoothly by their assigned event and upload categories.
-                    </p>
-                  </div>
+                return (
+                  <>
+                    {/* Slider SPOTLIGHT preview */}
+                    <PromoSlider
+                      onSelectProject={handleSelectSpotlight}
+                      projects={projects}
+                      photos={previewPhotos}
+                    />
 
-                  {/* Live status badge */}
-                  <div className="flex items-center gap-1.5 self-start sm:self-center">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-[10px] text-emerald-500 font-mono uppercase tracking-wider font-semibold">Snap AI Live Pipeline</span>
-                  </div>
-                </div>
+                    {/* SMOOTH CATEGORIZED GALLERY EXPLORER */}
+                    <div className="bg-theme-card border border-theme-border rounded-2xl p-6 sm:p-8 shadow-md dark:shadow-xl space-y-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-theme-border pb-4">
+                        <div>
+                          <h3 className="text-xl font-bold tracking-tight text-theme-text flex items-center gap-2">
+                            <span className="p-1.5 rounded-lg bg-sky-500/15 text-sky-500">
+                              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            </span>
+                            Public Showcase Gallery
+                          </h3>
+                          <p className="text-theme-muted text-xs mt-1">
+                            Browse and filter admin-approved public showcase highlights. (Other uploads belong strictly to private face-search scan matching for privacy).
+                          </p>
+                        </div>
 
-                {/* Check authentication state */}
-                {!currentProfile ? (
-                  <div className="bg-theme-bg/50 border border-theme-border rounded-xl p-8 text-center">
-                    <p className="text-theme-text font-bold text-sm">Secure Private Photo Streaming</p>
-                    <p className="text-theme-muted text-xs max-w-sm mx-auto mt-2 leading-relaxed">
-                      Please sign in with Google to activate the live image stream and browse photos.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {/* Smooth Filter Bar */}
-                    <div className="space-y-2">
-                      <label className="text-[10px] text-theme-muted font-bold font-mono uppercase tracking-wider block">
-                        Filter Event Categories Smoothly:
-                      </label>
-                      <div className="flex flex-wrap gap-1.5">
-                        <button
-                          onClick={() => setSelectedShowcaseCategory("all")}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold select-none cursor-pointer border transition ${
-                            selectedShowcaseCategory === "all"
-                              ? "bg-slate-900 border-slate-700 text-white dark:bg-white dark:border-white dark:text-slate-950 font-bold font-sans"
-                              : "bg-theme-bg/60 border-theme-border text-theme-muted hover:text-theme-text font-sans"
-                          }`}
-                        >
-                          All Photo Uploads ({photos.length})
-                        </button>
-                        {Array.from(new Set(photos.map((photo) => String(photo.category || "General")))).map((catVal) => {
-                          const catName = catVal as string;
-                          const count = photos.filter((p) => String(p.category || "General").toLowerCase() === catName.toLowerCase()).length;
-                          return (
-                            <button
-                              key={catName}
-                              onClick={() => setSelectedShowcaseCategory(catName.toLowerCase())}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold select-none cursor-pointer border transition ${
-                                selectedShowcaseCategory === catName.toLowerCase()
-                                  ? "bg-indigo-600 border-indigo-500 text-white dark:bg-indigo-500 dark:border-indigo-405 font-bold font-sans"
-                                  : "bg-theme-bg/60 border-theme-border text-theme-muted hover:text-theme-text font-sans"
-                              }`}
-                            >
-                              {catName} ({count})
-                            </button>
-                          );
-                        })}
+                        {/* Live status badge */}
+                        <div className="flex items-center gap-1.5 self-start sm:self-center">
+                          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                          <span className="text-[10px] text-emerald-500 font-mono uppercase tracking-wider font-semibold">Snap AI Live Pipeline</span>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Grid displays */}
-                    {photos.filter(
-                      (p) =>
-                        selectedShowcaseCategory === "all" ||
-                        String(p.category || "General").toLowerCase() === selectedShowcaseCategory.toLowerCase()
-                    ).length === 0 ? (
-                      <div className="bg-theme-bg/30 border border-dashed border-theme-border rounded-xl p-8 text-center">
-                        <p className="text-theme-muted text-xs">No active photo uploads belong to the selected Category filter tag.</p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                        {photos
-                          .filter(
-                            (p) =>
-                              selectedShowcaseCategory === "all" ||
-                              String(p.category || "General").toLowerCase() === selectedShowcaseCategory.toLowerCase()
-                          )
-                          .slice(0, 12)
-                          .map((photo) => (
-                            <div
-                              key={photo.id}
-                              className="group relative bg-slate-950 aspect-square rounded-xl overflow-hidden border border-theme-border shadow-sm hover:border-sky-500/50 transition duration-300 flex flex-col justify-end"
-                            >
-                              <img
-                                src={photo.base64Data}
-                                alt={photo.fileName}
-                                referrerPolicy="no-referrer"
-                                className="absolute inset-0 w-full h-full object-cover transition duration-500 group-hover:scale-105"
-                              />
-                              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-slate-950 to-transparent" />
-                              
-                              {/* Visual Label indicators */}
-                              <div className="relative z-10 p-2.5 flex flex-col gap-0.5 pointer-events-none">
-                                <span className="text-[9px] bg-slate-900/95 text-slate-300 font-sans tracking-wide px-1.5 py-0.5 rounded border border-slate-800 self-start truncate max-w-full">
-                                  📂 {photo.category || "General"}
-                                </span>
-                                <span className="text-[10px] text-white font-medium font-mono truncate">
-                                  {photo.fileName}
-                                </span>
+                      {/* Check authentication state */}
+                      {!currentProfile ? (
+                        <div className="bg-theme-bg/50 border border-theme-border rounded-xl p-8 text-center">
+                          <p className="text-theme-text font-bold text-sm">Secure Private Photo Streaming</p>
+                          <p className="text-theme-muted text-xs max-w-sm mx-auto mt-2 leading-relaxed">
+                            Please sign in with Google to activate the live image stream and browse photos.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-6">
+                          
+                          {/* Smooth Filter Bar */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end bg-theme-bg/40 p-4 rounded-xl border border-theme-border/60">
+                            <div className="space-y-2">
+                              <label className="text-[10px] text-theme-muted font-bold font-mono uppercase tracking-wider block">
+                                Filter Event Categories:
+                              </label>
+                              <div className="flex flex-wrap gap-1.5">
+                                <button
+                                  onClick={() => setSelectedShowcaseCategory("all")}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold select-none cursor-pointer border transition ${
+                                    selectedShowcaseCategory === "all"
+                                      ? "bg-slate-900 border-slate-705 text-white dark:bg-white dark:border-white dark:text-slate-950 font-bold font-sans"
+                                      : "bg-theme-bg/60 border-theme-border text-theme-muted hover:text-theme-text font-sans"
+                                  }`}
+                                >
+                                  All Previews ({previewPhotos.length})
+                                </button>
+                                {Array.from(new Set(previewPhotos.map((photo) => String(photo.category || "General")))).map((catVal) => {
+                                  const catName = catVal as string;
+                                  const count = previewPhotos.filter((p) => String(p.category || "General").toLowerCase() === catName.toLowerCase()).length;
+                                  return (
+                                    <button
+                                      key={catName}
+                                      onClick={() => setSelectedShowcaseCategory(catName.toLowerCase())}
+                                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold select-none cursor-pointer border transition ${
+                                        selectedShowcaseCategory === catName.toLowerCase()
+                                          ? "bg-indigo-650 border-indigo-500 text-white dark:bg-indigo-500 dark:border-indigo-405 font-bold font-sans"
+                                          : "bg-theme-bg/60 border-theme-border text-theme-muted hover:text-theme-text font-sans"
+                                      }`}
+                                    >
+                                      {catName} ({count})
+                                    </button>
+                                  );
+                                })}
                               </div>
                             </div>
-                          ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+
+                            {/* Event Name Filter */}
+                            <div className="space-y-2">
+                              <label className="text-[10px] text-theme-muted font-bold font-mono uppercase tracking-wider block">
+                                Search by Event Name / Venue:
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="Type event name..."
+                                value={showcaseEventQuery}
+                                onChange={(e) => setShowcaseEventQuery(e.target.value)}
+                                className="w-full bg-theme-bg border border-theme-border rounded-lg py-1.5 px-3 text-xs text-theme-text placeholder-theme-muted focus:outline-none focus:border-sky-505"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Grid displays */}
+                          {displayedPhotos.length === 0 ? (
+                            <div className="bg-theme-bg/30 border border-dashed border-theme-border rounded-xl p-8 text-center">
+                              <p className="text-theme-muted text-xs">No active preview photos match the specified tags or search query.</p>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                              {displayedPhotos
+                                .slice(0, 16)
+                                .map((photo) => {
+                                  const proj = projects.find((p) => p.id === photo.projectId);
+                                  const projName = photo.projectId === "individual" ? "Individual Photo" : (proj ? proj.name : "Company Item");
+                                  return (
+                                    <div
+                                      key={photo.id}
+                                      className="group relative bg-slate-950 aspect-square rounded-xl overflow-hidden border border-theme-border shadow-sm hover:border-sky-500/50 transition duration-300 flex flex-col justify-end"
+                                    >
+                                      <img
+                                        src={photo.base64Data}
+                                        alt={photo.fileName}
+                                        referrerPolicy="no-referrer"
+                                        className="absolute inset-0 w-full h-full object-cover transition duration-500 group-hover:scale-105"
+                                      />
+                                      <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950/90 to-transparent" />
+                                      
+                                      {/* Visual Label indicators */}
+                                      <div className="relative z-10 p-2.5 flex flex-col gap-0.5 pointer-events-none">
+                                        <span className="text-[9px] bg-sky-500 text-slate-950 font-sans tracking-wide px-1.5 py-0.5 rounded border border-sky-400 self-start truncate max-w-full font-bold">
+                                          🎯 {projName}
+                                        </span>
+                                        <span className="text-[9px] text-slate-350 italic truncate font-mono">
+                                          🏷️ {photo.category || "General"}
+                                        </span>
+                                        <span className="text-[10px] text-white font-medium font-mono truncate">
+                                          {photo.fileName}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
 
               {/* COMMERCIAL LAUNCH & BILLING INFORMATION BOX */}
               <div className="bg-theme-card border border-theme-border rounded-2xl p-6 sm:p-8 shadow-md dark:shadow-xl">

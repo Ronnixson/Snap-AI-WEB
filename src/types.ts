@@ -31,6 +31,7 @@ export interface EventPhoto {
   uploaderId: string;
   createdAt: string;
   category?: string; // Event Name or Custom category
+  isPreview?: boolean; // Set by administrator to allow public previewing
 }
 
 export interface MatchResponse {

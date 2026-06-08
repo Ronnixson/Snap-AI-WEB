@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Project, EventPhoto } from "../types";
-import { Camera, Upload, Check, Loader2, Sparkles, Download, CreditCard, Lock, UserCheck, RefreshCw, AlertCircle, Eye, HelpCircle } from "lucide-react";
+import { Camera, Upload, Check, Loader2, Sparkles, Download, CreditCard, Lock, UserCheck, RefreshCw, AlertCircle, Eye, HelpCircle, Search, Filter } from "lucide-react";
 
 interface FindMyPhotosProps {
   projects: Project[];
@@ -24,6 +24,7 @@ export default function FindMyPhotos({
   const [matchDetails, setMatchDetails] = useState<{ [photoId: string]: { confidence: number; reasoning: string } }>({});
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [eventNameQuery, setEventNameQuery] = useState<string>("");
 
   // Billing states (for trial mode premium monetization)
   const [unlockedPhotos, setUnlockedPhotos] = useState<{ [photoId: string]: boolean }>({});
@@ -427,77 +428,125 @@ export default function FindMyPhotos({
             </div>
           ) : (
             <div className="space-y-6">
-              {/* CATEGORY FILTER CHIPS FOR SEARCH RESULTS */}
-              <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl space-y-3">
-                <span className="text-[10px] text-slate-400 font-bold uppercase font-mono tracking-wider block">
-                  Smooth Filter: Narrow results by Tag / Category
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  <button
-                    onClick={() => setSelectedCategory("all")}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold font-sans transition border cursor-pointer ${
-                      selectedCategory === "all"
-                        ? "bg-sky-500 text-slate-950 border-sky-450 hover:bg-sky-305"
-                        : "bg-slate-900 text-slate-350 hover:bg-slate-805 hover:text-white border-slate-800"
-                    }`}
-                  >
-                    All Matched ({matchedPhotoIds.length})
-                  </button>
-                  {Array.from(
-                    new Set(
-                      photos
-                        .filter((photo) => matchedPhotoIds.includes(photo.id))
-                        .map((photo) => photo.category || "General")
-                    )
-                  ).filter(Boolean).map((catName) => {
-                    const count = photos
-                      .filter((photo) => matchedPhotoIds.includes(photo.id))
-                      .filter((photo) => (photo.category || "General").toLowerCase() === catName.toLowerCase()).length;
-                    return (
+              {/* CATEGORY & EVENT SEARCH FILTERS FOR RESULTS */}
+              <div className="bg-slate-950 border border-slate-800 p-5 rounded-2xl space-y-4">
+                <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+                  {/* Category chips */}
+                  <div className="space-y-1.5 flex-grow">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase font-mono tracking-wider block">
+                      Narrow results by Tag / Category
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
                       <button
-                        key={catName}
-                        onClick={() => setSelectedCategory(catName.toLowerCase())}
+                        onClick={() => setSelectedCategory("all")}
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold font-sans transition border cursor-pointer ${
-                          selectedCategory === catName.toLowerCase()
-                            ? "bg-indigo-550 text-white border-indigo-500 hover:bg-indigo-500"
+                          selectedCategory === "all"
+                            ? "bg-sky-500 text-slate-950 border-sky-450 hover:bg-sky-305"
                             : "bg-slate-900 text-slate-350 hover:bg-slate-805 hover:text-white border-slate-800"
                         }`}
                       >
-                        {catName} ({count})
+                        All Matched ({matchedPhotoIds.length})
                       </button>
-                    );
-                  })}
+                      {Array.from(
+                        new Set(
+                          photos
+                            .filter((photo) => matchedPhotoIds.includes(photo.id))
+                            .map((photo) => photo.category || "General")
+                        )
+                      ).filter(Boolean).map((catName) => {
+                        const count = photos
+                          .filter((photo) => matchedPhotoIds.includes(photo.id))
+                          .filter((photo) => (photo.category || "General").toLowerCase() === catName.toLowerCase()).length;
+                        return (
+                          <button
+                            key={catName}
+                            onClick={() => setSelectedCategory(catName.toLowerCase())}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold font-sans transition border cursor-pointer ${
+                              selectedCategory === catName.toLowerCase()
+                                ? "bg-indigo-550 text-white border-indigo-500 hover:bg-indigo-550/90"
+                                : "bg-slate-900 text-slate-350 hover:bg-slate-805 hover:text-white border-slate-800"
+                            }`}
+                          >
+                            {catName} ({count})
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Filter by Event Name input */}
+                  <div className="w-full md:w-72 shrink-0 space-y-1.5">
+                    <span className="text-[10px] text-sky-400 font-bold uppercase font-mono tracking-wider block">
+                      🔍 Filter by Booking/Event Name
+                    </span>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                        <Search className="h-4 w-4 text-slate-500" />
+                      </span>
+                      <input
+                        type="text"
+                        placeholder="Type event name..."
+                        value={eventNameQuery}
+                        onChange={(e) => setEventNameQuery(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-800 rounded-lg py-2 pl-9 pr-4 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {photos
                 .filter((photo) => matchedPhotoIds.includes(photo.id))
-                .filter(
-                  (photo) =>
-                    selectedCategory === "all" ||
-                    (photo.category || "General").toLowerCase() === selectedCategory.toLowerCase()
-                ).length === 0 ? (
+                .filter((photo) => {
+                  // 1. Category Filter
+                  if (selectedCategory !== "all") {
+                    const cat = (photo.category || "General").toLowerCase();
+                    if (cat !== selectedCategory.toLowerCase()) return false;
+                  }
+                  // 2. Event Name Filter
+                  if (eventNameQuery.trim() !== "") {
+                    const proj = projects.find((p) => p.id === photo.projectId);
+                    const projectName = photo.projectId === "individual" ? "Individual Photo" : (proj ? proj.name : "Company Photo");
+                    if (!projectName.toLowerCase().includes(eventNameQuery.toLowerCase())) {
+                      return false;
+                    }
+                  }
+                  return true;
+                }).length === 0 ? (
                 <div className="bg-slate-950/60 border border-slate-850 rounded-xl p-8 text-center max-w-sm mx-auto">
-                  <p className="text-slate-400 text-xs text-center">No matching photos belong to the selected Category filter tag.</p>
+                  <p className="text-slate-400 text-xs text-center">No matching photos belong to the selected search and event name queries.</p>
                   <button
-                    onClick={() => setSelectedCategory("all")}
-                    className="mt-2 text-sky-400 font-bold text-xs hover:underline cursor-pointer"
+                    onClick={() => { setSelectedCategory("all"); setEventNameQuery(""); }}
+                    className="mt-3 bg-slate-800 hover:bg-slate-700 hover:text-white border border-slate-700 text-slate-300 font-bold text-xs px-3 py-1.5 rounded-lg transition cursor-pointer"
                   >
-                    Clear Filter
+                    Reset Filters
                   </button>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {photos
                     .filter((photo) => matchedPhotoIds.includes(photo.id))
-                    .filter(
-                      (photo) =>
-                        selectedCategory === "all" ||
-                        (photo.category || "General").toLowerCase() === selectedCategory.toLowerCase()
-                    )
+                    .filter((photo) => {
+                      // 1. Category Filter
+                      if (selectedCategory !== "all") {
+                        const cat = (photo.category || "General").toLowerCase();
+                        if (cat !== selectedCategory.toLowerCase()) return false;
+                      }
+                      // 2. Event Name Filter
+                      if (eventNameQuery.trim() !== "") {
+                        const proj = projects.find((p) => p.id === photo.projectId);
+                        const projectName = photo.projectId === "individual" ? "Individual Photo" : (proj ? proj.name : "Company Photo");
+                        if (!projectName.toLowerCase().includes(eventNameQuery.toLowerCase())) {
+                          return false;
+                        }
+                      }
+                      return true;
+                    })
                     .map((photo) => {
                   const details = matchDetails[photo.id] || { confidence: 0.85, reasoning: "Recognized face correlation." };
                   const isUnlocked = unlockedPhotos[photo.id] || isDemoPaidUser;
+                  const proj = projects.find((p) => p.id === photo.projectId);
+                  const projectName = photo.projectId === "individual" ? "Individual Photo" : (proj ? proj.name : "Company Photo");
 
                   return (
                     <div
@@ -506,9 +555,11 @@ export default function FindMyPhotos({
                     >
                       {/* Photo Header Metadata / Confidence Check */}
                       <div className="bg-slate-950/80 p-3 flex justify-between items-center border-b border-slate-800 font-mono text-[10px]">
-                        <span className="text-slate-400 text-ellipsis overflow-hidden whitespace-nowrap max-w-[120px]">{photo.fileName}</span>
+                        <span className="text-slate-400 text-ellipsis overflow-hidden whitespace-nowrap max-w-[120px]" title={photo.fileName}>
+                          {photo.fileName}
+                        </span>
                         <span className="text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 font-bold shrink-0">
-                          {Math.round(details.confidence * 100)}% Confidence Match
+                          {Math.round(details.confidence * 100)}% Match
                         </span>
                       </div>
 
@@ -521,6 +572,13 @@ export default function FindMyPhotos({
                           className="w-full h-full object-cover"
                         />
                         
+                        {/* Event Name Tag Overlay */}
+                        <div className="absolute top-2.5 right-2.5 z-10">
+                          <span className="text-[9px] uppercase font-mono bg-indigo-900/90 text-indigo-2 w-max px-2 py-1 rounded shadow-md border border-indigo-750 font-bold text-white">
+                            🎯 {projectName}
+                          </span>
+                        </div>
+
                         {/* Interactive Watermark Overlay if Locked */}
                         {!isUnlocked && (
                           <div className="absolute inset-0 bg-slate-950/20 flex flex-col items-center justify-center p-4">
