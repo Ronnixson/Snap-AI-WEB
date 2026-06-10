@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { onSnapshot, collection, query, orderBy, limit, doc } from "firebase/firestore";
+import { onSnapshot, collection, query, orderBy, limit, doc, where } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { UserProfile, Project, EventPhoto, SystemSetting } from "./types";
 import { handleFirestoreError, OperationType } from "./utils/firebaseErrors";
@@ -118,14 +118,17 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Listen to Photos Real-time (Authenticated only)
+  // 2. Listen to Photos Real-time (Authenticated see latest, Guests see previews only)
   useEffect(() => {
-    if (!currentProfile) {
-      setPhotos([]);
-      return;
+    let q;
+    if (currentProfile) {
+      q = query(collection(db, "photos"), orderBy("createdAt", "desc"), limit(48));
+    } else {
+      // Query only flagged preview photos when not authenticated.
+      // Avoid composite ordering constraints by sorting in memory for unauthenticated guests.
+      q = query(collection(db, "photos"), where("isPreview", "==", true), limit(48));
     }
 
-    const q = query(collection(db, "photos"), orderBy("createdAt", "desc"), limit(48));
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
@@ -133,10 +136,19 @@ export default function App() {
         snapshot.forEach((doc) => {
           list.push(doc.data() as EventPhoto);
         });
+
+        if (!currentProfile) {
+          // Sort in memory by createdAt descending
+          list.sort((a, b) => {
+            const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return timeB - timeA;
+          });
+        }
         setPhotos(list);
       },
       (error) => {
-        console.warn("Photo permissions restricted or unauthorized.");
+        console.warn("Photo views or previews restricted:", error.message);
       }
     );
 
@@ -324,19 +336,26 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* Check authentication state */}
-                      {!currentProfile ? (
-                        <div className="bg-theme-bg/50 border border-theme-border rounded-xl p-8 text-center">
-                          <p className="text-theme-text font-bold text-sm">Secure Private Photo Streaming</p>
-                          <p className="text-theme-muted text-xs max-w-sm mx-auto mt-2 leading-relaxed">
-                            Please sign in with Google to activate the live image stream and browse photos.
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="space-y-6">
-                          
-                          {/* Smooth Filter Bar */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end bg-theme-bg/40 p-4 rounded-xl border border-theme-border/60">
+                      {/* Check authentication state & provide helpful guest reminder */}
+                      <div className="space-y-6">
+                        {!currentProfile && (
+                          <div className="bg-gradient-to-r from-sky-500/10 via-indigo-500/10 to-transparent border border-sky-500/20 rounded-xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                            <div className="space-y-1">
+                              <h4 className="text-sm font-bold text-sky-450 flex items-center gap-1.5 uppercase tracking-wider font-mono">
+                                <Sparkles className="h-4 w-4 text-sky-400 shrink-0" /> Public Previews Enabled
+                              </h4>
+                              <p className="text-xs text-theme-muted max-w-2xl leading-relaxed">
+                                You are currently browsing approved public showcase spotlights as a guest. Want to find the exact high-definition photographs where your own face is detected? Sign in above with Google to unleash Snap AI's instant face-matching engine!
+                              </p>
+                            </div>
+                            <div className="shrink-0 bg-sky-500/10 px-3.5 py-1.5 rounded-lg border border-sky-500/30 text-[10px] text-sky-400 font-mono font-bold uppercase tracking-wider">
+                              ⚡ AI Matching Offline
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Smooth Filter Bar */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end bg-theme-bg/40 p-4 rounded-xl border border-theme-border/60">
                             <div className="space-y-2">
                               <label className="text-[10px] text-theme-muted font-bold font-mono uppercase tracking-wider block">
                                 Filter Event Categories:
@@ -430,8 +449,7 @@ export default function App() {
                             </div>
                           )}
                         </div>
-                      )}
-                    </div>
+                      </div>
                   </>
                 );
               })()}
