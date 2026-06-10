@@ -532,84 +532,56 @@ export default function AdminPanel({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Form Side */}
           <div className="lg:col-span-7 space-y-5">
-            {/* Type selector */}
+            {/* Hardcoded Premium Logo Type indicator */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-300 uppercase font-mono block">Watermark Type</label>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setWmType("text")}
-                  className={`py-2.5 rounded-lg border font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                    wmType === "text"
-                      ? "bg-indigo-600 border-indigo-500 text-white shadow-lg"
-                      : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
-                  }`}
-                >
-                  Text signature
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWmType("logo")}
-                  className={`py-2.5 rounded-lg border font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                    wmType === "logo"
-                      ? "bg-indigo-600 border-indigo-500 text-white shadow-lg"
-                      : "bg-slate-950 border-slate-800 text-slate-400 hover:text-white"
-                  }`}
-                >
-                  Custom Brand Logo Overlay
-                </button>
+              <label className="text-xs font-bold text-slate-300 uppercase font-mono block">Watermark Mode</label>
+              <div className="bg-slate-950/60 border border-slate-850 p-3 rounded-lg flex items-center justify-between text-xs">
+                <span className="font-sans text-slate-300 flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  Premium Gold Logomark Watermark
+                </span>
+                <span className="text-[9px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                  Active
+                </span>
               </div>
             </div>
 
-            {/* Config options based on type */}
-            {wmType === "text" ? (
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-300 uppercase font-mono block">Watermark Label Text</label>
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-slate-300 uppercase font-mono block">Watermark Logomark Resource (Base64 File)</label>
+              <div className="border border-dashed border-slate-800 hover:border-slate-700 bg-slate-950/60 rounded-xl p-4 transition text-center relative flex flex-col items-center justify-center space-y-2">
                 <input
-                  type="text"
-                  maxLength={100}
-                  value={wmText}
-                  onChange={(e) => setWmText(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition"
-                  placeholder="e.g. SNAP-AI"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoFileChange}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  title="Choose customized branding logomark overlay"
                 />
+                {wmLogo ? (
+                  <div className="relative shrink-0 max-w-[80px]">
+                    <img src={wmLogo} alt="Custom watermark preview logo" className="max-h-16 object-contain rounded border border-slate-800 bg-slate-950 p-1" />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setWmLogo(OFFICIAL_LOGO_BASE64);
+                      }}
+                      className="absolute -top-1.5 -right-1.5 bg-indigo-600 text-white rounded-full p-0.5 text-[8px] font-bold h-4 w-4 hover:bg-indigo-500 flex items-center justify-center cursor-pointer"
+                      title="Reset to default official gold logo"
+                    >
+                      ↺
+                    </button>
+                  </div>
+                ) : (
+                  <FileUp className="h-6 w-6 text-slate-500" />
+                )}
+                <span className="text-[11px] text-slate-400 font-medium">
+                  {wmLogo ? "Authorized image loaded. Click to replace." : "Click or drag asset to replace watermark image"}
+                </span>
+                <p className="text-[9px] text-slate-500 font-mono leading-relaxed">
+                  Defaults to Snap AI's official high-contrast Gold Logomark context. Upload PNG/JPEG/SVG file (Max 1.5MB).
+                </p>
               </div>
-            ) : (
-              <div className="space-y-3">
-                <label className="text-xs font-bold text-slate-300 uppercase font-mono block">Upload Watermark Logo (Base64 file)</label>
-                <div className="border border-dashed border-slate-800 hover:border-slate-700 bg-slate-950/60 rounded-xl p-4 transition text-center relative flex flex-col items-center justify-center space-y-2">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleLogoFileChange}
-                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                    title="Choose customized branding logomark overlay"
-                  />
-                  {wmLogo ? (
-                    <div className="relative shrink-0 max-w-[80px]">
-                      <img src={wmLogo} alt="Custom watermark preview logo" className="max-h-16 object-contain rounded border border-slate-800 bg-slate-950 p-1" />
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setWmLogo(null);
-                        }}
-                        className="absolute -top-1.5 -right-1.5 bg-red-650 text-white rounded-full p-0.5 text-[8px] font-bold h-4 w-4 hover:bg-red-500 flex items-center justify-center cursor-pointer"
-                        title="Remove logo file"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ) : (
-                    <FileUp className="h-6 w-6 text-slate-500" />
-                  )}
-                  <span className="text-[11px] text-slate-400">
-                    {wmLogo ? "Logo Loaded successfully. Click to replace." : "Drag & drop or click to upload PNG/JPG logo file"}
-                  </span>
-                  <span className="text-[9px] text-slate-500 font-mono">Max size: 1.5MB (Fits real-time DB limits)</span>
-                </div>
-              </div>
-            )}
+            </div>
 
             {/* Opacity slider */}
             <div className="space-y-2">
@@ -669,33 +641,22 @@ export default function AdminPanel({
                 <span className="text-[9px] uppercase font-mono tracking-widest text-slate-500 font-bold">Simulated HD Photograph preview</span>
               </div>
 
-              {/* Simulated visual watermark rendering */}
-              {wmType === "logo" && wmLogo ? (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-6">
-                  <img
-                    src={wmLogo}
-                    alt="Watermark Simulation Logo"
-                    className="max-w-[70%] max-h-[70%] object-contain select-none pointer-events-none"
-                    style={{ opacity: wmOpacity }}
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-              ) : (
-                <div className="absolute inset-0 border-2 border-white/5 flex items-center justify-center pointer-events-none">
-                  <span
-                    className="transform rotate-[-25deg] font-mono tracking-[4px] text-xs text-white uppercase font-black select-none p-2 border border-white/10 bg-black/70 rounded shadow-lg text-center max-w-[85%] break-all"
-                    style={{ opacity: wmOpacity }}
-                  >
-                    {wmText || "SNAP-AI"}
-                  </span>
-                </div>
-              )}
+              {/* Simulated visual watermark rendering at bottom right */}
+              <div className="absolute bottom-3 right-3 w-[26%] max-w-[80px] pointer-events-none p-1 bg-slate-950/80 rounded border border-slate-800 shadow-lg">
+                <img
+                  src={wmLogo || OFFICIAL_LOGO_BASE64}
+                  alt="Watermark Simulation Logo"
+                  className="w-full h-auto object-contain select-none pointer-events-none"
+                  style={{ opacity: wmOpacity }}
+                  referrerPolicy="no-referrer"
+                />
+              </div>
             </div>
 
             <div className="bg-slate-900/60 p-2.5 rounded border border-slate-800/80 text-[10px] text-slate-400 flex items-start gap-1.5 leading-normal">
               <Check className="h-3.5 w-3.5 text-indigo-400 shrink-0 mt-0.5" />
               <span>
-                Applying {Math.round(wmOpacity * 100)}% transparent {wmType === "logo" ? "brand graphic" : `"${wmText || "SNAP-AI"}" key text`} to preview cards instantly.
+                Applying {Math.round(wmOpacity * 100)}% transparent official Gold Logomark to preview cards instantly.
               </span>
             </div>
           </div>
