@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Project, EventPhoto, SystemSetting } from "../types";
 import { Camera, Upload, Check, Loader2, Sparkles, Download, CreditCard, Lock, UserCheck, RefreshCw, AlertCircle, Eye, HelpCircle, Search, Filter } from "lucide-react";
+import { OFFICIAL_LOGO_BASE64 } from "../utils/logo";
 
 interface FindMyPhotosProps {
   projects: Project[];
@@ -238,17 +239,18 @@ export default function FindMyPhotos({
           
           const watermarkText = watermarkSetting?.text || "SNAP-AI";
           const watermarkOpacity = watermarkSetting?.opacity !== undefined ? watermarkSetting.opacity : 0.45;
-          const watermarkType = watermarkSetting?.type || "text";
-          const logoData = watermarkSetting?.logoBase64;
+          const watermarkType = watermarkSetting?.type || "logo";
+          const logoData = watermarkSetting?.logoBase64 || OFFICIAL_LOGO_BASE64;
 
           if (watermarkType === "logo" && logoData) {
-            // Render logo overlay
+            // Render logo overlay at bottom right
             const logoImg = new Image();
             logoImg.onload = () => {
               ctx.globalAlpha = watermarkOpacity;
-              const size = Math.min(canvas.width, canvas.height) * 0.4;
-              const x = (canvas.width - size) / 2;
-              const y = (canvas.height - size) / 2;
+              const size = Math.min(canvas.width, canvas.height) * 0.25;
+              const margin = Math.min(canvas.width, canvas.height) * 0.04;
+              const x = canvas.width - size - margin;
+              const y = canvas.height - size - margin;
               ctx.drawImage(logoImg, x, y, size, size);
               ctx.globalAlpha = 1.0;
               
@@ -734,15 +736,15 @@ export default function FindMyPhotos({
 
                         {/* Interactive Watermark Overlay if Locked */}
                         {!isUnlocked && (
-                          <div className="absolute inset-0 bg-slate-950/20 flex flex-col items-center justify-center p-4">
-                            {/* Watermark diagonal line blocks or logo */}
-                            {watermarkSetting?.type === "logo" && watermarkSetting?.logoBase64 ? (
-                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-10">
+                          <div className="absolute inset-0 bg-slate-950/15 flex flex-col items-center justify-between p-3.5 pointer-events-none select-none z-10">
+                            {/* Watermark logo in bottom right or text */}
+                            {(!watermarkSetting || watermarkSetting.type === "logo") ? (
+                              <div className="absolute bottom-3 right-3 w-[26%] max-w-[80px] pointer-events-none z-10 bg-slate-950/80 p-1 rounded border border-slate-800/80 shadow-lg">
                                 <img
-                                  src={watermarkSetting.logoBase64}
+                                  src={watermarkSetting?.logoBase64 || OFFICIAL_LOGO_BASE64}
                                   alt="Secure Logo Watermark"
-                                  className="max-w-[70%] max-h-[70%] object-contain select-none pointer-events-none"
-                                  style={{ opacity: watermarkSetting.opacity !== undefined ? watermarkSetting.opacity : 0.45 }}
+                                  className="w-full h-auto object-contain select-none pointer-events-none"
+                                  style={{ opacity: watermarkSetting?.opacity !== undefined ? watermarkSetting.opacity : 0.75 }}
                                   referrerPolicy="no-referrer"
                                 />
                               </div>
@@ -757,10 +759,8 @@ export default function FindMyPhotos({
                               </div>
                             )}
 
-                            <div className="z-10 bg-slate-950/90 py-3 px-4 rounded-xl border border-slate-800 max-w-[220px] text-center shadow-lg space-y-2 mt-auto">
-                              <p className="text-[10px] text-slate-300">
-                                Unlocked original HD copy contains high definition colors with zero watermark locks.
-                              </p>
+                            <div className="z-10 bg-slate-950/90 py-2 px-3 rounded-lg border border-slate-800 max-w-[200px] text-center shadow-lg mt-auto text-[9px] text-slate-300 mx-auto">
+                              Unlocked original HD copy contains high definition colors with zero watermark locks.
                             </div>
                           </div>
                         )}

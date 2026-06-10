@@ -4,6 +4,7 @@ import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../firebase";
 import { UserProfile, UserRole } from "../types";
 import { Shield, Camera, Users, LogOut, LogIn, Sparkles, Sun, Moon } from "lucide-react";
+import { OFFICIAL_LOGO_BASE64 } from "../utils/logo";
 
 interface AuthBarProps {
   onProfileLoaded: (profile: UserProfile | null) => void;
@@ -92,15 +93,18 @@ export default function AuthBar({ onProfileLoaded, currentProfile, theme, onTogg
     <div className="bg-theme-card border-b border-theme-border text-theme-text py-3 px-4 sm:px-6 transition-colors duration-250">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Branding Logo */}
-        <div className="flex items-center gap-2">
-          <div className="h-9 w-9 bg-gradient-to-tr from-sky-400 to-indigo-500 rounded-lg flex items-center justify-center shadow-lg shadow-sky-500/10">
-            <Camera className="h-5 w-5 text-slate-900 stroke-[2.5]" />
-          </div>
+        <div className="flex items-center gap-2.5">
+          <img
+            src={OFFICIAL_LOGO_BASE64}
+            alt="Snap AI Gold Logo"
+            className="h-10 w-auto select-none shrink-0"
+            referrerPolicy="no-referrer"
+          />
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-theme-text flex items-center gap-1.5 font-sans">
-              Snap <span className="text-sky-450">AI</span>
+            <h1 className="text-base font-extrabold tracking-tight text-theme-text flex items-center font-sans uppercase">
+              Snap <span className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent ml-1 font-black">AI</span>
             </h1>
-            <p className="text-[10px] text-theme-muted font-mono tracking-wider">SMART PHOTO INSIGHTS</p>
+            <p className="text-[9px] text-theme-muted font-mono tracking-widest uppercase font-semibold">Best Matches Zoomed To You</p>
           </div>
         </div>
 

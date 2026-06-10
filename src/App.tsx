@@ -124,9 +124,9 @@ export default function App() {
     if (currentProfile) {
       q = query(collection(db, "photos"), orderBy("createdAt", "desc"), limit(48));
     } else {
-      // Query only flagged preview photos when not authenticated.
+      // Query only flagged and admin-approved preview photos when not authenticated.
       // Avoid composite ordering constraints by sorting in memory for unauthenticated guests.
-      q = query(collection(db, "photos"), where("isPreview", "==", true), limit(48));
+      q = query(collection(db, "photos"), where("isPreview", "==", true), where("isAdminApproved", "==", true), limit(48));
     }
 
     const unsubscribe = onSnapshot(
@@ -289,7 +289,15 @@ export default function App() {
           {activeTab === "showcase" && (
             <div className="space-y-12">
               {(() => {
-                const previewPhotos = photos.filter((p) => !!p.isPreview);
+                const previewPhotos = photos.filter((p) => {
+                  const isSubmitted = !!p.isPreview;
+                  if (!isSubmitted) return false;
+                  // If logged in as staff or admin, we can preview pending ones too
+                  if (currentProfile?.role === "admin" || currentProfile?.role === "staff") {
+                    return true;
+                  }
+                  return !!p.isAdminApproved;
+                });
                 const displayedPhotos = previewPhotos
                   .filter(
                     (p) =>
@@ -431,6 +439,22 @@ export default function App() {
                                       />
                                       <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950/90 to-transparent" />
                                       
+                                      {/* Approval tag indicators for admin/staff */}
+                                      {(!photo.isAdminApproved) && (currentProfile?.role === "admin" || currentProfile?.role === "staff") && (
+                                        <div className="absolute top-2 right-2 z-10">
+                                          <span className="text-[8px] bg-red-650 text-white font-bold p-1 rounded border border-red-500 uppercase tracking-widest font-mono shadow-md">
+                                            ⏳ Pending Approval
+                                          </span>
+                                        </div>
+                                      )}
+                                      {(!!photo.isAdminApproved) && (currentProfile?.role === "admin" || currentProfile?.role === "staff") && (
+                                        <div className="absolute top-2 right-2 z-10">
+                                          <span className="text-[8px] bg-emerald-600 text-white font-bold p-1 rounded border border-emerald-500 uppercase tracking-widest font-mono shadow-md">
+                                            ✅ Approved Preview
+                                          </span>
+                                        </div>
+                                      )}
+
                                       {/* Visual Label indicators */}
                                       <div className="relative z-10 p-2.5 flex flex-col gap-0.5 pointer-events-none">
                                         <span className="text-[9px] bg-sky-500 text-slate-950 font-sans tracking-wide px-1.5 py-0.5 rounded border border-sky-400 self-start truncate max-w-full font-bold">

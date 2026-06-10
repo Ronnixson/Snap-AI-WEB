@@ -4,6 +4,7 @@ import { collection, doc, updateDoc, setDoc, deleteDoc, getDocs } from "firebase
 import { db } from "../firebase";
 import { handleFirestoreError, OperationType } from "../utils/firebaseErrors";
 import { Shield, Users, Coins, Image as ImageIcon, Sparkles, Loader2, Award, Zap, Check, UserPlus, FileUp, Database, AlertCircle, TrendingUp, Trash2, Search, Filter, Eye, EyeOff } from "lucide-react";
+import { OFFICIAL_LOGO_BASE64 } from "../utils/logo";
 
 interface AdminPanelProps {
   projects: Project[];
@@ -40,19 +41,19 @@ export default function AdminPanel({
   const [isDeletingPhotoId, setIsDeletingPhotoId] = useState<string | null>(null);
 
   // Watermark Settings States
-  const [wmType, setWmType] = useState<"text" | "logo">("text");
+  const [wmType, setWmType] = useState<"text" | "logo">("logo");
   const [wmText, setWmText] = useState<string>("SNAP-AI");
   const [wmOpacity, setWmOpacity] = useState<number>(0.4);
-  const [wmLogo, setWmLogo] = useState<string | null>(null);
+  const [wmLogo, setWmLogo] = useState<string | null>(OFFICIAL_LOGO_BASE64);
   const [isSavingWatermark, setIsSavingWatermark] = useState<boolean>(false);
 
   // Synchronize when prop loads or updates
   useEffect(() => {
     if (watermarkSetting) {
-      setWmType(watermarkSetting.type);
-      setWmText(watermarkSetting.text);
-      setWmOpacity(watermarkSetting.opacity);
-      setWmLogo(watermarkSetting.logoBase64 || null);
+      setWmType(watermarkSetting.type || "logo");
+      setWmText(watermarkSetting.text || "SNAP-AI");
+      setWmOpacity(watermarkSetting.opacity !== undefined ? watermarkSetting.opacity : 0.4);
+      setWmLogo(watermarkSetting.logoBase64 || OFFICIAL_LOGO_BASE64);
     }
   }, [watermarkSetting]);
 
@@ -132,6 +133,20 @@ export default function AdminPanel({
       await onRefreshData();
     } catch (err: any) {
       setErrorMsg("Failed to update preview status: " + err.message);
+      handleFirestoreError(err, OperationType.UPDATE, `photos/${photoId}`);
+    }
+  };
+
+  // Toggle admin approval status of photo
+  const handleToggleApproval = async (photoId: string, currentIsApproved: boolean) => {
+    clearAlerts();
+    try {
+      const photoRef = doc(db, "photos", photoId);
+      await updateDoc(photoRef, { isAdminApproved: !currentIsApproved });
+      setSuccessMsg(`Photo preview approval status updated to ${!currentIsApproved ? "Approved" : "Pending/Under Review"}!`);
+      await onRefreshData();
+    } catch (err: any) {
+      setErrorMsg("Failed to update approval status: " + err.message);
       handleFirestoreError(err, OperationType.UPDATE, `photos/${photoId}`);
     }
   };
@@ -826,7 +841,7 @@ export default function AdminPanel({
               return (
                 <div
                   key={photo.id}
-                  className="group relative bg-slate-950 rounded-xl overflow-hidden border border-slate-800 shadow-sm hover:border-slate-750 transition duration-200 flex flex-col h-[290px]"
+                  className="group relative bg-slate-950 rounded-xl overflow-hidden border border-slate-800 shadow-sm hover:border-slate-750 transition duration-200 flex flex-col h-auto"
                 >
                   <div className="relative bg-black overflow-hidden h-[120px] shrink-0">
                     <img
@@ -840,15 +855,24 @@ export default function AdminPanel({
                         📂 {photo.category || "General"}
                       </span>
                     </div>
-                    {/* Status badge in top right */}
-                    <div className="absolute top-2 right-2">
+                    {/* Status badges in top right */}
+                    <div className="absolute top-2 right-2 flex flex-col gap-1 items-end select-none">
                       {photo.isPreview ? (
-                        <span className="text-[9px] bg-emerald-500/20 text-emerald-405 border border-emerald-500/35 font-mono px-1.5 py-0.5 rounded font-bold">
-                          👁️ PREVIEW
+                        <span className="text-[8px] bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 font-mono px-1.5 py-0.5 rounded font-extrabold uppercase shadow-sm">
+                          👁️ Showcase Preview
                         </span>
                       ) : (
-                        <span className="text-[9px] bg-slate-900/95 text-slate-400 border border-slate-800 font-mono px-1.5 py-0.5 rounded">
-                          🔒 PRIVATE
+                        <span className="text-[8px] bg-slate-900/95 text-slate-400 border border-slate-800 font-mono px-1.5 py-0.5 rounded uppercase shadow-sm">
+                          🔒 Private
+                        </span>
+                      )}
+                      {photo.isAdminApproved ? (
+                        <span className="text-[8px] bg-emerald-555/20 text-emerald-400 border border-emerald-500/35 font-mono px-1.5 py-0.5 rounded font-extrabold uppercase shadow-sm">
+                          ✅ Approved
+                        </span>
+                      ) : (
+                        <span className="text-[8px] bg-amber-500/20 text-amber-400 border border-amber-500/35 font-mono px-1.5 py-0.5 rounded font-extrabold uppercase shadow-sm animate-pulse">
+                          ⏳ Pending Approval
                         </span>
                       )}
                     </div>
@@ -864,11 +888,11 @@ export default function AdminPanel({
                       </p>
                     </div>
 
-                    <div className="space-y-1.5 mt-2">
+                    <div className="space-y-1.5 mt-2.5">
                       {/* Set/Unset preview toggler */}
                       <button
                         onClick={() => handleTogglePreview(photo.id, !!photo.isPreview)}
-                        className={`w-full flex items-center justify-center gap-1 py-1 rounded transition text-[9px] font-bold cursor-pointer border ${
+                        className={`w-full flex items-center justify-center gap-1.5 py-1 rounded transition text-[9px] font-bold cursor-pointer border ${
                           photo.isPreview
                             ? "bg-indigo-950/40 text-indigo-400 border-indigo-900/40 hover:bg-indigo-900/40"
                             : "bg-slate-950 text-slate-300 border-slate-800 hover:bg-slate-800"
@@ -876,13 +900,35 @@ export default function AdminPanel({
                       >
                         {photo.isPreview ? (
                           <>
-                            <EyeOff className="h-3 w-3" />
-                            Remove from Preview
+                            <EyeOff className="h-2.5 w-2.5" />
+                            Remove showcase
                           </>
                         ) : (
                           <>
-                            <Eye className="h-3 w-3" />
-                            Make Public Preview
+                            <Eye className="h-2.5 w-2.5" />
+                            Allow showcase
+                          </>
+                        )}
+                      </button>
+
+                      {/* Admin Approval Toggler */}
+                      <button
+                        onClick={() => handleToggleApproval(photo.id, !!photo.isAdminApproved)}
+                        className={`w-full flex items-center justify-center gap-1.5 py-1 rounded transition text-[9px] font-bold cursor-pointer border ${
+                          photo.isAdminApproved
+                            ? "bg-emerald-950/40 text-emerald-405 border-emerald-900/40 hover:bg-emerald-900/45"
+                            : "bg-amber-950/40 text-amber-405 border-amber-900/40 hover:bg-amber-900/45"
+                        }`}
+                      >
+                        {photo.isAdminApproved ? (
+                          <>
+                            <Check className="h-2.5 w-2.5 text-emerald-400" />
+                            Revoke admin approval
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-2.5 w-2.5 text-amber-450" />
+                            Approve showcase
                           </>
                         )}
                       </button>
@@ -892,14 +938,14 @@ export default function AdminPanel({
                           <button
                             onClick={() => handleDeletePhoto(photo.id)}
                             disabled={isDeletingPhotoId === photo.id}
-                            className="flex-grow bg-red-600 hover:bg-red-500 text-white font-bold text-[9px] py-1 rounded transition text-center cursor-pointer disabled:opacity-50"
+                            className="flex-grow bg-red-650 hover:bg-red-500 text-white font-bold text-[9px] py-1 rounded transition text-center cursor-pointer disabled:opacity-50"
                           >
                             {isDeletingPhotoId === photo.id ? "Wiping..." : "Confirm"}
                           </button>
                           <button
                             onClick={() => setPhotoDeleteConfirmId(null)}
                             disabled={isDeletingPhotoId === photo.id}
-                            className="bg-slate-850 hover:bg-slate-800 text-slate-300 font-semibold text-[9px] py-1 px-2 rounded transition cursor-pointer"
+                            className="bg-slate-850 hover:bg-slate-850 text-slate-300 font-semibold text-[9px] py-1 px-2 rounded transition cursor-pointer"
                           >
                             Cancel
                           </button>
@@ -907,9 +953,9 @@ export default function AdminPanel({
                       ) : (
                         <button
                           onClick={() => setPhotoDeleteConfirmId(photo.id)}
-                          className="w-full flex items-center justify-center gap-1 bg-red-950/30 hover:bg-red-900/50 text-red-400 hover:text-red-300 border border-red-900/35 font-bold text-[9px] py-1 rounded transition cursor-pointer"
+                          className="w-full flex items-center justify-center gap-1.5 bg-red-950/35 hover:bg-red-900/50 text-red-400 hover:text-red-300 border border-red-900/35 font-bold text-[9px] py-1 rounded transition cursor-pointer"
                         >
-                          <Trash2 className="h-3 w-3" />
+                          <Trash2 className="h-2.5 w-2.5" />
                           Delete Photo
                         </button>
                       )}
