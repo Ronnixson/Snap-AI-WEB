@@ -8,7 +8,7 @@ import PromoSlider from "./components/PromoSlider";
 import FindMyPhotos from "./components/FindMyPhotos";
 import StaffPortal from "./components/StaffPortal";
 import AdminPanel from "./components/AdminPanel";
-import { ImageIcon, Sparkles, Camera, Shield, Eye, Lock, HelpCircle, Check, Info, BadgeDollarSign, Heart, AlertCircle, Download, Share2, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { ImageIcon, Sparkles, Camera, Shield, Eye, Lock, HelpCircle, Check, Info, BadgeDollarSign, Heart, AlertCircle, Download, Share2, X, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { OFFICIAL_LOGO_BASE64 } from "./utils/logo";
 
 export default function App() {
@@ -76,6 +76,7 @@ export default function App() {
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [selectedShowcaseCategory, setSelectedShowcaseCategory] = useState<string>("all");
   const [showcaseEventQuery, setShowcaseEventQuery] = useState<string>("");
+  const [showcaseCategoryTagQuery, setShowcaseCategoryTagQuery] = useState<string>("");
 
   // Favorites (Saved to Local Storage)
   const [favorites, setFavorites] = useState<string[]>(() => {
@@ -347,6 +348,14 @@ export default function App() {
       const proj = projects.find((proj) => proj.id === p.projectId);
       const projName = p.projectId === "individual" ? "Individual Photo" : (proj ? proj.name : "Company Item");
       return projName.toLowerCase().includes(showcaseEventQuery.toLowerCase());
+    })
+    .filter((p) => {
+      if (!showcaseCategoryTagQuery || showcaseCategoryTagQuery.trim() === "") return true;
+      const q = showcaseCategoryTagQuery.toLowerCase().trim();
+      const cat = String(p.category || "General").toLowerCase();
+      const alt = String(p.altText || "").toLowerCase();
+      const filename = String(p.fileName || "").toLowerCase();
+      return cat.includes(q) || alt.includes(q) || filename.includes(q);
     });
 
   // Keyboard layout next/prev and escape shortcuts inside Lightbox modal
@@ -515,7 +524,7 @@ export default function App() {
                         )}
                         
                         {/* Smooth Filter Bar */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end bg-theme-bg/40 p-4 rounded-xl border border-theme-border/60">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end bg-theme-bg/40 p-4 rounded-xl border border-theme-border/60">
                             <div className="space-y-2">
                               <label className="text-[10px] text-theme-muted font-bold font-mono uppercase tracking-wider block">
                                 Filter Event Categories:
@@ -571,13 +580,51 @@ export default function App() {
                               <label className="text-[10px] text-theme-muted font-bold font-mono uppercase tracking-wider block">
                                 Search by Event Name / Venue:
                               </label>
-                              <input
-                                type="text"
-                                placeholder="Type event name..."
-                                value={showcaseEventQuery}
-                                onChange={(e) => setShowcaseEventQuery(e.target.value)}
-                                className="w-full bg-theme-bg border border-theme-border rounded-lg py-1.5 px-3 text-xs text-theme-text placeholder-theme-muted focus:outline-none focus:border-sky-505"
-                              />
+                              <div className="relative">
+                                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-theme-muted" />
+                                <input
+                                  type="text"
+                                  placeholder="Type event name..."
+                                  value={showcaseEventQuery}
+                                  onChange={(e) => setShowcaseEventQuery(e.target.value)}
+                                  className="w-full bg-theme-bg border border-theme-border rounded-lg py-1.5 pl-9 pr-3 text-xs text-theme-text placeholder-theme-muted focus:outline-none focus:border-sky-505"
+                                />
+                                {showcaseEventQuery && (
+                                  <button
+                                    onClick={() => setShowcaseEventQuery("")}
+                                    className="absolute right-2.5 top-2.5 text-theme-muted hover:text-theme-text"
+                                    title="Clear event search"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Real-time Category/Tag Filter */}
+                            <div className="space-y-2">
+                              <label className="text-[10px] text-theme-muted font-bold font-mono uppercase tracking-wider block">
+                                Search Photo Categories / Tags:
+                              </label>
+                              <div className="relative">
+                                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-theme-muted" />
+                                <input
+                                  type="text"
+                                  placeholder="Search categories (e.g., Candid, Cap Throw, Ceremony)..."
+                                  value={showcaseCategoryTagQuery}
+                                  onChange={(e) => setShowcaseCategoryTagQuery(e.target.value)}
+                                  className="w-full bg-theme-bg border border-theme-border rounded-lg py-1.5 pl-9 pr-3 text-xs text-theme-text placeholder-theme-muted focus:outline-none focus:border-sky-505"
+                                />
+                                {showcaseCategoryTagQuery && (
+                                  <button
+                                    onClick={() => setShowcaseCategoryTagQuery("")}
+                                    className="absolute right-2.5 top-2.5 text-theme-muted hover:text-theme-text"
+                                    title="Clear category/tag search"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
 
