@@ -408,7 +408,7 @@ export default function StaffPortal({
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Oakridge Corporate Gala"
+                    placeholder="e.g. Kampala Corporate Gala"
                     value={newProjectName}
                     onChange={(e) => setNewProjectName(e.target.value)}
                     className="w-full bg-slate-900 border border-slate-850 px-3 py-2 text-xs rounded-lg text-slate-100 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"
@@ -430,7 +430,7 @@ export default function StaffPortal({
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Grand Plaza Ballroom, NY"
+                    placeholder="e.g. Speke Resort Munyonyo, Kampala"
                     value={newProjectLoc}
                     onChange={(e) => setNewProjectLoc(e.target.value)}
                     className="w-full bg-slate-900 border border-slate-850 px-3 py-2 text-xs rounded-lg text-slate-100 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500"

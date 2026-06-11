@@ -218,21 +218,21 @@ export default function AdminPanel({
       const demoProjects: Project[] = [
         {
           id: "project_gala2026",
-          name: "Spring Corporate Gala 2026",
+          name: "Kampala Entrepreneurs Gala 2026",
           description: "Annual corporate celebration and awards gala documenting milestone achievements in glorious corporate photography spotlights.",
           date: "April 24, 2026",
-          location: "Manhattan Grand Ballroom, NY",
-          coverUrl: getMockPortraitSVG("#1e3a8a", "#0284c7", "GALA COVER"),
+          location: "Speke Resort Munyonyo, Kampala",
+          coverUrl: getMockPortraitSVG("#1e3a8a", "#0284c7", "KAMPALA GALA"),
           creatorId: "system_seeder",
           createdAt: new Date().toISOString(),
         },
         {
           id: "project_grad2026",
-          name: "State University Graduation Showcase",
+          name: "Makerere University Graduation Showcase",
           description: "Graduates commemorating major commencement achievements with professional portraiture and candid cap throws.",
           date: "May 18, 2026",
-          location: "Dean Athletic Arena, CA",
-          coverUrl: getMockPortraitSVG("#311042", "#db2777", "GRAD COVER"),
+          location: "Freedom Square, Makerere",
+          coverUrl: getMockPortraitSVG("#311042", "#db2777", "MAKERERE GRAD"),
           creatorId: "system_seeder",
           createdAt: new Date().toISOString(),
         }
@@ -248,24 +248,24 @@ export default function AdminPanel({
         {
           id: "photo_p1",
           projectId: "project_gala2026",
-          base64Data: getMockPortraitSVG("#0f172a", "#38bdf8", "ALEX (GALA)"),
-          fileName: "gala_alex_candid.jpg",
+          base64Data: getMockPortraitSVG("#0f172a", "#38bdf8", "KATO (GALA)"),
+          fileName: "gala_kato_candid.jpg",
           uploaderId: "system_seeder",
           createdAt: new Date().toISOString(),
         },
         {
           id: "photo_p2",
           projectId: "project_gala2026",
-          base64Data: getMockPortraitSVG("#064e3b", "#34d399", "SARAH (GALA)"),
-          fileName: "sarah_acceptance_speech.jpg",
+          base64Data: getMockPortraitSVG("#064e3b", "#34d399", "NAMUBIRU (GALA)"),
+          fileName: "namubiru_acceptance_speech.jpg",
           uploaderId: "system_seeder",
           createdAt: new Date().toISOString(),
         },
         {
           id: "photo_p3",
           projectId: "project_gala2026",
-          base64Data: getMockPortraitSVG("#5c3a21", "#fbbf24", "MARCUS (GALA)"),
-          fileName: "marcus_keynote_profile.jpg",
+          base64Data: getMockPortraitSVG("#5c3a21", "#fbbf24", "MUGISHA (GALA)"),
+          fileName: "mugisha_keynote_profile.jpg",
           uploaderId: "system_seeder",
           createdAt: new Date().toISOString(),
         },
@@ -273,24 +273,24 @@ export default function AdminPanel({
         {
           id: "photo_p4",
           projectId: "project_grad2026",
-          base64Data: getMockPortraitSVG("#1e1b4b", "#818cf8", "ALEX (GRAD)"),
-          fileName: "alex_cap_throw_hd.png",
+          base64Data: getMockPortraitSVG("#1e1b4b", "#818cf8", "OKELLO (GRAD)"),
+          fileName: "okello_cap_throw_hd.png",
           uploaderId: "system_seeder",
           createdAt: new Date().toISOString(),
         },
         {
           id: "photo_p5",
           projectId: "project_grad2026",
-          base64Data: getMockPortraitSVG("#701a75", "#f472b6", "SARAH (GRAD)"),
-          fileName: "sarah_diploma_smile.jpg",
+          base64Data: getMockPortraitSVG("#701a75", "#f472b6", "NAJJEMBA (GRAD)"),
+          fileName: "najjemba_diploma_smile.jpg",
           uploaderId: "system_seeder",
           createdAt: new Date().toISOString(),
         },
         {
           id: "photo_p6",
           projectId: "project_grad2026",
-          base64Data: getMockPortraitSVG("#581c87", "#c084fc", "CHRIS (GRAD)"),
-          fileName: "chris_congrats_portrait.jpg",
+          base64Data: getMockPortraitSVG("#581c87", "#c084fc", "KIZITO (GRAD)"),
+          fileName: "kizito_congrats_portrait.jpg",
           uploaderId: "system_seeder",
           createdAt: new Date().toISOString(),
         }
@@ -300,7 +300,7 @@ export default function AdminPanel({
         await setDoc(doc(db, "photos", ph.id), ph);
       }
 
-      setSuccessMsg("Successfully bootstrapped default Snap AI compilations for Gala and Graduation, with 6 facial-matching portfolios!");
+      setSuccessMsg("Successfully bootstrapped Ugandan event compilations with 6 local facial-matching portfolios!");
       await onRefreshData();
     } catch (err: any) {
       setErrorMsg("Bootstrap error: " + err.message);
