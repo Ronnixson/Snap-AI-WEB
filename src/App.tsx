@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { motion } from "motion/react";
 import { onSnapshot, collection, query, orderBy, limit, doc, where } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { UserProfile, Project, EventPhoto, SystemSetting } from "./types";
@@ -641,11 +642,14 @@ export default function App() {
                                   const proj = projects.find((p) => p.id === photo.projectId);
                                   const projName = photo.projectId === "individual" ? "Individual Photo" : (proj ? proj.name : "Company Item");
                                   return (
-                                    <div
+                                    <motion.div
                                       key={photo.id}
                                       onClick={() => setActiveSharedPhoto(photo)}
                                       className="group relative bg-slate-950 aspect-square rounded-xl overflow-hidden border border-theme-border shadow-sm hover:border-sky-500/50 transition duration-300 flex flex-col justify-end cursor-pointer select-none hover:shadow-xl hover:shadow-sky-500/5"
                                       title="Click to expand high-res lightbox inspection"
+                                      initial={{ opacity: 0, y: 15 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      transition={{ duration: 0.35, ease: "easeOut" }}
                                     >
                                       <img
                                         src={photo.base64Data}
@@ -729,7 +733,7 @@ export default function App() {
                                           {photo.fileName}
                                         </span>
                                       </div>
-                                    </div>
+                                    </motion.div>
                                   );
                                 })}
                             </div>
