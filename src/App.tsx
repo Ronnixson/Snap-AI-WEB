@@ -76,6 +76,27 @@ export default function App() {
   const [selectedShowcaseCategory, setSelectedShowcaseCategory] = useState<string>("all");
   const [showcaseEventQuery, setShowcaseEventQuery] = useState<string>("");
 
+  // Favorites (Saved to Local Storage)
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("snap_favorite_photos");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState<boolean>(false);
+
+  const toggleFavorite = (photoId: string) => {
+    setFavorites((prev) => {
+      const next = prev.includes(photoId)
+        ? prev.filter((id) => id !== photoId)
+        : [...prev, photoId];
+      localStorage.setItem("snap_favorite_photos", JSON.stringify(next));
+      return next;
+    });
+  };
+
   // Securely reset activeTab if permissions change or user logs out
   useEffect(() => {
     if (!currentProfile) {
@@ -305,6 +326,10 @@ export default function App() {
                       String(p.category || "General").toLowerCase() === selectedShowcaseCategory.toLowerCase()
                   )
                   .filter((p) => {
+                    if (!showFavoritesOnly) return true;
+                    return favorites.includes(p.id);
+                  })
+                  .filter((p) => {
                     if (!showcaseEventQuery || showcaseEventQuery.trim() === "") return true;
                     const proj = projects.find((proj) => proj.id === p.projectId);
                     const projName = p.projectId === "individual" ? "Individual Photo" : (proj ? proj.name : "Company Item");
@@ -379,6 +404,21 @@ export default function App() {
                                 >
                                   All Previews ({previewPhotos.length})
                                 </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold select-none cursor-pointer border transition flex items-center gap-1.5 active:scale-95 duration-150 ${
+                                    showFavoritesOnly
+                                      ? "bg-rose-500/10 border-rose-500/30 text-rose-500 font-bold"
+                                      : "bg-theme-bg/60 border-theme-border text-theme-muted hover:text-rose-450 hover:border-rose-500/25"
+                                  }`}
+                                  title="Filter list to show only favorited items saved to your browser"
+                                >
+                                  <Heart
+                                    className={`h-3.5 w-3.5 ${showFavoritesOnly ? "fill-rose-500 text-rose-500 animate-pulse" : "text-theme-muted"}`}
+                                  />
+                                  Favorites ({favorites.length})
+                                </button>
                                 {Array.from(new Set(previewPhotos.map((photo) => String(photo.category || "General")))).map((catVal) => {
                                   const catName = catVal as string;
                                   const count = previewPhotos.filter((p) => String(p.category || "General").toLowerCase() === catName.toLowerCase()).length;
@@ -437,6 +477,26 @@ export default function App() {
                                         referrerPolicy="no-referrer"
                                         className="absolute inset-0 w-full h-full object-cover transition duration-500 group-hover:scale-105"
                                       />
+
+                                      {/* Interactive Heart Favorite Button Overlay */}
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          toggleFavorite(photo.id);
+                                        }}
+                                        className="absolute top-2 left-2 z-15 p-1.5 rounded-lg bg-slate-950/75 hover:bg-slate-950/95 border border-slate-800/80 hover:border-rose-500/35 text-slate-350 hover:text-rose-550 transition duration-150 cursor-pointer shadow-lg active:scale-90"
+                                        title={favorites.includes(photo.id) ? "Remove from Saved Favorites" : "Save to Favorites"}
+                                      >
+                                        <Heart
+                                          className={`h-3.5 w-3.5 transition-all duration-150 ${
+                                            favorites.includes(photo.id)
+                                              ? "fill-rose-500 text-rose-500 scale-110"
+                                              : "text-slate-400 group-hover:text-rose-450"
+                                          }`}
+                                        />
+                                      </button>
+
                                       <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950/90 to-transparent" />
                                       
                                       {/* Approval tag indicators for admin/staff */}
