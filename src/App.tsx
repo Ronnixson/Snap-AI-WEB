@@ -8,7 +8,7 @@ import PromoSlider from "./components/PromoSlider";
 import FindMyPhotos from "./components/FindMyPhotos";
 import StaffPortal from "./components/StaffPortal";
 import AdminPanel from "./components/AdminPanel";
-import { ImageIcon, Sparkles, Camera, Shield, Eye, Lock, HelpCircle, Check, Info, BadgeDollarSign, Heart, AlertCircle, Download } from "lucide-react";
+import { ImageIcon, Sparkles, Camera, Shield, Eye, Lock, HelpCircle, Check, Info, BadgeDollarSign, Heart, AlertCircle, Download, Share2, X } from "lucide-react";
 import { OFFICIAL_LOGO_BASE64 } from "./utils/logo";
 
 export default function App() {
@@ -87,6 +87,47 @@ export default function App() {
     }
   });
   const [showFavoritesOnly, setShowFavoritesOnly] = useState<boolean>(false);
+
+  // Direct Social Share & Lightbox controls
+  const [activeSharedPhoto, setActiveSharedPhoto] = useState<EventPhoto | null>(null);
+  const [shareToast, setShareToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (photos.length > 0) {
+      const params = new URLSearchParams(window.location.search);
+      const sharedPhotoId = params.get("photoId");
+      if (sharedPhotoId) {
+        const found = photos.find((p) => p.id === sharedPhotoId);
+        if (found) {
+          setActiveSharedPhoto(found);
+        }
+      }
+    }
+  }, [photos]);
+
+  const handleCloseSharedPhoto = () => {
+    setActiveSharedPhoto(null);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("photoId");
+      window.history.replaceState({}, "", url.pathname + url.search);
+    } catch (e) {
+      console.warn("Failed to clean up URL: ", e);
+    }
+  };
+
+  const handleSharePhoto = (photo: EventPhoto) => {
+    try {
+      const shareUrl = `${window.location.origin}${window.location.pathname}?photoId=${photo.id}`;
+      navigator.clipboard.writeText(shareUrl);
+      setShareToast("Direct photo sharing URL copied to clipboard! 📋");
+      setTimeout(() => {
+        setShareToast(null);
+      }, 3500);
+    } catch (e) {
+      console.error("Clipboard copy failed: ", e);
+    }
+  };
 
   const toggleFavorite = (photoId: string) => {
     setFavorites((prev) => {
@@ -569,6 +610,19 @@ export default function App() {
                                         <Download className="h-3.5 w-3.5 text-slate-450 group-hover:text-sky-400 transition-colors duration-150" />
                                       </button>
 
+                                      {/* Share Photo Direct Link Overlay */}
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleSharePhoto(photo);
+                                        }}
+                                        className="absolute top-2 left-[4.5rem] z-15 p-1.5 rounded-lg bg-slate-950/75 hover:bg-slate-950/95 border border-slate-800/80 hover:border-emerald-500/35 text-slate-350 hover:text-emerald-400 transition duration-150 cursor-pointer shadow-lg active:scale-90"
+                                        title="Copy Direct Share Link"
+                                      >
+                                        <Share2 className="h-3.5 w-3.5 text-slate-450 group-hover:text-emerald-400 transition-colors duration-150" />
+                                      </button>
+
                                       <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950/90 to-transparent" />
                                       
                                       {/* Approval tag indicators for admin/staff */}
@@ -731,6 +785,111 @@ export default function App() {
           </p>
         </div>
       </footer>
+
+      {/* 4. PREMIUM SOCIAL SHARE LIGHTBOX MODAL */}
+      {activeSharedPhoto && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md transition-all duration-300">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-2xl w-full shadow-2xl relative overflow-hidden flex flex-col md:flex-row gap-6">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-500 via-sky-500 to-indigo-500" />
+            
+            {/* Close button */}
+            <button
+              onClick={handleCloseSharedPhoto}
+              className="absolute top-4 right-4 p-2 rounded-full bg-slate-950/65 hover:bg-slate-950/95 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white transition cursor-pointer z-50 animate-pulse"
+              title="Close direct preview"
+            >
+              <X className="h-4.5 w-4.5" />
+            </button>
+
+            {/* Photo Column */}
+            <div className="w-full md:w-3/5 bg-slate-950 rounded-2xl aspect-square relative overflow-hidden border border-slate-800 flex items-center justify-center">
+              <img
+                src={activeSharedPhoto.base64Data}
+                alt={activeSharedPhoto.fileName}
+                referrerPolicy="no-referrer"
+                className="max-h-full max-w-full object-contain"
+              />
+              <div className="absolute bottom-3 left-3 bg-slate-950/70 backdrop-blur-sm px-2.5 py-1 rounded-md text-[10px] font-mono text-slate-400 border border-slate-800">
+                Preview File
+              </div>
+            </div>
+
+            {/* Meta and Details Column */}
+            <div className="w-full md:w-2/5 flex flex-col justify-between py-1 gap-4 text-left">
+              <div className="space-y-4">
+                <div>
+                  <span className="text-[10px] font-mono bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded border border-indigo-500/30 font-bold uppercase tracking-wider block w-fit mb-2">
+                    Direct Link Item
+                  </span>
+                  <h4 className="text-lg font-black text-white leading-tight font-sans tracking-tight">
+                    {activeSharedPhoto.fileName || "Event Spotlight Photo"}
+                  </h4>
+                  <p className="text-xs text-slate-400 leading-relaxed font-sans mt-1">
+                    Event: <strong className="text-sky-350">{
+                      activeSharedPhoto.projectId === "individual" 
+                        ? "Individual Spotlight Portrait" 
+                        : (projects.find((p) => p.id === activeSharedPhoto.projectId)?.name || "Corporate Event Compilation")
+                    }</strong>
+                  </p>
+                </div>
+
+                <div className="space-y-1 bg-slate-950/60 p-3 rounded-xl border border-slate-850">
+                  <p className="text-[10px] uppercase text-slate-450 font-mono tracking-wider font-semibold">Category Label</p>
+                  <p className="text-xs text-white font-mono font-medium flex items-center gap-1.5">
+                    🏷️ {activeSharedPhoto.category || "General"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Buttons list */}
+              <div className="space-y-2 mt-auto">
+                <button
+                  type="button"
+                  onClick={() => handleSharePhoto(activeSharedPhoto)}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-3 rounded-xl transition duration-150 transform active:scale-98 flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-700/10"
+                >
+                  <Share2 className="h-4 w-4" />
+                  Copy Shareable Url Link
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDownloadPreview(activeSharedPhoto)}
+                  className="w-full bg-slate-950 hover:bg-slate-900 text-sky-400 hover:text-sky-300 font-bold text-xs py-3 rounded-xl border border-slate-800 hover:border-sky-500/30 transition duration-150 transform active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Download className="h-4 w-4" />
+                  Download Watermarked Preview
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => toggleFavorite(activeSharedPhoto.id)}
+                  className={`w-full font-bold text-xs py-3 rounded-xl transition duration-150 transform active:scale-98 flex items-center justify-center gap-2 cursor-pointer border ${
+                    favorites.includes(activeSharedPhoto.id)
+                      ? "bg-rose-500/15 text-rose-500 border-rose-500/35 hover:bg-rose-500/25"
+                      : "bg-slate-950 hover:bg-slate-900 text-slate-300 border-slate-800 hover:border-rose-500/25 hover:text-rose-400"
+                  }`}
+                >
+                  <Heart className={`h-4 w-4 ${favorites.includes(activeSharedPhoto.id) ? "fill-rose-500 text-rose-500 animate-pulse" : ""}`} />
+                  {favorites.includes(activeSharedPhoto.id) ? "Saved in Your Favorites" : "Save to Favorites"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 5. GENTLE FLOATING NOTIFICATION TOAST */}
+      {shareToast && (
+        <div className="fixed bottom-6 right-6 z-[120] animate-bounce bg-emerald-600 border border-emerald-500/30 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 max-w-sm">
+          <div className="h-6 w-6 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-sm shrink-0">
+            ✓
+          </div>
+          <p className="text-xs font-bold leading-normal tracking-tight font-sans">
+            {shareToast}
+          </p>
+        </div>
+      )}
 
     </div>
   );
