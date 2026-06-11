@@ -8,7 +8,8 @@ import PromoSlider from "./components/PromoSlider";
 import FindMyPhotos from "./components/FindMyPhotos";
 import StaffPortal from "./components/StaffPortal";
 import AdminPanel from "./components/AdminPanel";
-import { ImageIcon, Sparkles, Camera, Shield, Eye, Lock, HelpCircle, Check, Info, BadgeDollarSign, Heart, AlertCircle } from "lucide-react";
+import { ImageIcon, Sparkles, Camera, Shield, Eye, Lock, HelpCircle, Check, Info, BadgeDollarSign, Heart, AlertCircle, Download } from "lucide-react";
+import { OFFICIAL_LOGO_BASE64 } from "./utils/logo";
 
 export default function App() {
   const [currentProfile, setCurrentProfile] = useState<UserProfile | null>(null);
@@ -95,6 +96,64 @@ export default function App() {
       localStorage.setItem("snap_favorite_photos", JSON.stringify(next));
       return next;
     });
+  };
+
+  const handleDownloadPreview = (photo: EventPhoto) => {
+    const link = document.createElement("a");
+    link.download = `snap_ai_preview_${photo.fileName || "highres.jpg"}`;
+    
+    // Create canvas and apply preview watermark before download
+    const canvas = document.createElement("canvas");
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        
+        const watermarkOpacity = watermarkSetting?.opacity !== undefined ? watermarkSetting.opacity : 0.45;
+        const logoData = watermarkSetting?.logoBase64 || OFFICIAL_LOGO_BASE64;
+
+        // Render official gold logo watermark overlay at bottom right
+        const logoImg = new Image();
+        logoImg.crossOrigin = "anonymous";
+        logoImg.onload = () => {
+          ctx.globalAlpha = watermarkOpacity;
+          const size = Math.min(canvas.width, canvas.height) * 0.24;
+          const margin = Math.min(canvas.width, canvas.height) * 0.04;
+          const x = canvas.width - size - margin;
+          const y = canvas.height - size - margin;
+          ctx.drawImage(logoImg, x, y, size, size);
+          ctx.globalAlpha = 1.0;
+          
+          try {
+            link.href = canvas.toDataURL("image/jpeg", 0.95);
+            link.click();
+          } catch (e) {
+            console.error("Canvas export failed, doing direct download", e);
+            link.href = photo.base64Data;
+            link.click();
+          }
+        };
+        logoImg.onerror = () => {
+          try {
+            link.href = canvas.toDataURL("image/jpeg", 0.95);
+            link.click();
+          } catch {
+            link.href = photo.base64Data;
+            link.click();
+          }
+        };
+        logoImg.src = logoData;
+      }
+    };
+    img.onerror = () => {
+      link.href = photo.base64Data;
+      link.click();
+    };
+    img.src = photo.base64Data;
   };
 
   // Securely reset activeTab if permissions change or user logs out
@@ -495,6 +554,19 @@ export default function App() {
                                               : "text-slate-400 group-hover:text-rose-450"
                                           }`}
                                         />
+                                      </button>
+
+                                      {/* Download Watermarked Preview Button Overlay */}
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDownloadPreview(photo);
+                                        }}
+                                        className="absolute top-2 left-10 z-15 p-1.5 rounded-lg bg-slate-950/75 hover:bg-slate-950/95 border border-slate-800/80 hover:border-sky-500/35 text-slate-350 hover:text-sky-400 transition duration-150 cursor-pointer shadow-lg active:scale-90"
+                                        title="Download Preview with Watermark"
+                                      >
+                                        <Download className="h-3.5 w-3.5 text-slate-450 group-hover:text-sky-400 transition-colors duration-150" />
                                       </button>
 
                                       <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950/90 to-transparent" />
