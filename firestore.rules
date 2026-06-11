@@ -150,10 +150,19 @@ service cloud.firestore {
 
     // 5. System General Settings
     match /settings/{settingId} {
-      allow get: if true; // Any client or visitor can read the watermark configuration
+      allow get: if settingId == 'watermark' || (settingId != 'security' && true);
       allow list: if isSignedIn();
-      allow create, update: if isAdmin() && isValidSetting(incoming());
-      allow delete: if isAdmin();
+      allow create, update: if settingId != 'security' && isAdmin() && isValidSetting(incoming());
+      allow delete: if settingId != 'security' && isAdmin();
+    }
+
+    match /settings/security {
+      allow get: if isAdmin();
+      allow create, update: if isAdmin() && 
+                            incoming().id == 'security' && 
+                            incoming().passcode is string && 
+                            incoming().passcode.size() >= 4 && 
+                            incoming().passcode.size() <= 128;
     }
   }
 }

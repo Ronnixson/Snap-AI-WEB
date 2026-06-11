@@ -56,6 +56,17 @@
         "updatedAt": { "type": "string", "format": "date-time", "description": "Last updated timestamp." }
       },
       "required": ["id", "text", "type", "updatedAt"]
+    },
+    "SecuritySetting": {
+      "title": "Security Setting",
+      "description": "Secondary secure authentication key for verifying active administrator control panels.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Must be 'security'." },
+        "passcode": { "type": "string", "description": "The plain text administrative session password code." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last updated timestamp." }
+      },
+      "required": ["id", "passcode", "updatedAt"]
     }
   },
   "firestore": {
@@ -74,6 +85,10 @@
     "settings/{settingId}": {
       "schema": "SystemSetting",
       "description": "Workplace general configurations and watermark images."
+    },
+    "settings/security": {
+      "schema": "SecuritySetting",
+      "description": "The private configuration governing admin lockout credentials."
     }
   }
 }
